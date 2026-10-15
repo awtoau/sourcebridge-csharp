@@ -1,0 +1,609 @@
+{
+  "layer": "language",
+  "description": "GENERIC C#-to-Rust mappings. These are properties of the two LANGUAGES, not of Renode, and hold for any corpus. This is the layer c2rust occupies for C: a bug here is a transpiler bug and its fix benefits every future file, so it is fixed here rather than worked around per project.",
+  "boundary": "Nothing in this file may mention Renode, a peripheral, or a register. If a mapping needs project knowledge it belongs in a project rule file instead — that split is what keeps the transpiler reusable and the project rules small.",
+  "operators": {
+    "note": "IBinaryOperation.OperatorKind and IUnaryOperation.OperatorKind, recorded by the ingest. Without them a Binary node says only 'Binary' and no expression can be emitted.",
+    "binary": {
+      "Add": "{lhs} + {rhs}",
+      "Subtract": "{lhs} - {rhs}",
+      "Multiply": "{lhs} * {rhs}",
+      "Divide": "{lhs} / {rhs}",
+      "Remainder": "{lhs} % {rhs}",
+      "LeftShift": "{lhs} << {rhs}",
+      "RightShift": "{lhs} >> {rhs}",
+      "And": "{lhs} & {rhs}",
+      "Or": "{lhs} | {rhs}",
+      "ExclusiveOr": "{lhs} ^ {rhs}",
+      "ConditionalAnd": "{lhs} && {rhs}",
+      "ConditionalOr": "{lhs} || {rhs}",
+      "Equals": "{lhs} == {rhs}",
+      "NotEquals": "{lhs} != {rhs}",
+      "LessThan": "{lhs} < {rhs}",
+      "LessThanOrEqual": "{lhs} <= {rhs}",
+      "GreaterThan": "{lhs} > {rhs}",
+      "GreaterThanOrEqual": "{lhs} >= {rhs}"
+    },
+    "unary": {
+      "Not": "!{operand}",
+      "BitwiseNegation": "!{operand}",
+      "Minus": "-{operand}",
+      "Plus": "{operand}"
+    },
+    "unary_checked_gap": "`-x` on an integral type has the same overflow divergence `a - b` has: C# unchecked wraps `-int.MinValue` to itself, Rust's `-` panics in debug. It is NOT routed to the runtime because the ingest records no `checked` flag for IUnaryOperation -- every Unary row in the cut has an empty `detail`, where every Binary row carries `{\"checked\":..,\"lifted\":..}`. Routing on an assumed context would be a guess dressed as a mapping, so the plain operator stays and this names the missing fact. 18 `Minus` on int and 1 on long in the cut. The fix is one property in the walker, in the layer that owns extraction.",
+    "runtime_note": "The arithmetic and shift operators do NOT mean in Rust what they mean in C#, and the difference cannot be seen at the call site -- so under the fourth-layer decision they emit a CALL into `csharp-rt` rather than an operator. `operators.binary` above is still the source of truth for WHICH operator each kind is (compound assignment derives `+=` from `+` there); this table only redirects the ones whose semantics need a tested function. Comparison, bitwise and logical operators are renames and stay operators.",
+    "integral_types": ["byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong", "nint", "nuint"],
+    "integral_types_why": "The redirect applies to INTEGERS only, and the guard is the node's resolved type. `Add` in this corpus also arrives on `string` (25 sites -- concatenation), `double`, `float`, `decimal`, an enum, and two user types with operator overloads; routing any of those through an integer helper would not compile. Naming the integral set here rather than inferring it keeps the guard reviewable, and it is a different fact from `stdlib.primitives`, which maps every primitive to a Rust spelling without saying which are integers.",
+    "runtime": {
+      "unchecked": {
+        "Add": "csharp_rt::unchecked_add({lhs}, {rhs})",
+        "Subtract": "csharp_rt::unchecked_sub({lhs}, {rhs})",
+        "Multiply": "csharp_rt::unchecked_mul({lhs}, {rhs})"
+      },
+      "checked": {
+        "Add": "csharp_rt::checked_add({lhs}, {rhs})",
+        "Subtract": "csharp_rt::checked_sub({lhs}, {rhs})",
+        "Multiply": "csharp_rt::checked_mul({lhs}, {rhs})"
+      },
+      "shift": {
+        "LeftShift": "csharp_rt::shl({lhs}, ({rhs}) as u32)",
+        "RightShift": "csharp_rt::shr({lhs}, ({rhs}) as u32)"
+      },
+      "shift_count_cast_why": "The count is cast to u32 at the site rather than made generic in the runtime. C# states the count as `int`; a negative one is masked, and `as u32` is the two's-complement reinterpretation whose low bits are the same bits C# takes -- so `x << -1` is `x << 31` in both languages with no special case. Making the helper generic over the count type instead would need a numeric-conversion trait in `csharp-rt` that exists only to spare one cast.",
+      "not_redirected": "Divide and Remainder stay operators. C# throws DivideByZeroException on a zero divisor and OverflowException on `int.MinValue / -1`; Rust PANICS on both, unconditionally and in every profile. The error mode already agrees closely enough that a helper would add a call and change nothing -- and the fourth-layer test asks whether the semantic can be checked at the call site, not whether a helper is possible."
+    }
+  },
+  "severity": {
+    "note": "How loudly a mapping declares itself. There used to be one marker class: a GAP, which means the converter could not express something and the member is WITHHELD. Nothing could say the other thing — that it DID emit and its semantics differ — so three mappings sat in that position described accurately in this file and invisible in the output. Prose next to a rule cannot be counted, grepped or failed on. A severity can.",
+    "why_a_tier_and_not_a_gap": "A gap withholds. Turning these into gaps would delete working code to make a point: the pass-through still chains, the eager sequence is still read, the single subscriber still fires. What is wrong is the CLAIM of equivalence, so what has to change is the claim, not the emission.",
+    "tiers": {
+      "faithful": {
+        "rank": 0,
+        "emits": true,
+        "means": "equivalence is claimed. No marker — the ordinary case, and the reason a marker means something."
+      },
+      "warning": {
+        "rank": 1,
+        "emits": true,
+        "means": "it emitted, and the semantics DIFFER. Marked at the site, counted on the scorecard.",
+        "line": "// {tag}({id}): {text}",
+        "inline": "/* {tag}({id}): {text} */",
+        "default_tag": "WARN",
+        "marker_is_a_comment": "Both forms are comments and must stay comments. A marker that can break a build creates pressure to stop emitting markers, and the mechanism dies of its own cost.",
+        "inline_form_why": "Some deviations are in an EXPRESSION, where a line comment would swallow the rest of the line. The block form is the same marker and greps the same."
+      },
+      "gap": {
+        "rank": 2,
+        "emits": false,
+        "means": "it did not emit. The member is withheld whole and the reason is in the file header."
+      },
+      "bug": {
+        "rank": 1,
+        "emits": true,
+        "means": "the SOURCE is defective, and the output reproduces the defect faithfully. Marked at the site, counted separately from warnings.",
+        "line": "// {tag}({id}): {text}",
+        "inline": "/* {tag}({id}): {text} */",
+        "default_tag": "SRCBUG",
+        "why_not_the_warning_tier": "A warning says OUR MAPPING IS NARROWER THAN THE SOURCE. This says THE SOURCE IS NARROWER THAN THE THING IT MODELS -- the opposite direction. Sharing a tag would make the two indistinguishable in the output and would add the second kind to a ratchet that counts the first, so a number meant to fall as the transpiler improves would instead be tracking defects the transpiler cannot fix and must not fix.",
+        "rank_shares_with_warning_deliberately": "Both emit and both differ from an ideal, so neither outranks the other; the tag is what separates them, not the rank. A third rank would imply an ordering nothing consumes.",
+        "marker_is_a_comment": "As the warning tier. A marker that can break a build creates pressure to stop emitting markers.",
+        "instances_live_in_the_project_layer": "The tier is here because `the source has a defect` is a fact about translating anything. Every INSTANCE names a construct of one corpus, so the instances are project-layer data and this file must not list any."
+      }
+    },
+    "warnings": {
+      "condwrite": {
+        "tag": "WARN",
+        "text": "the source performs this access only under a guard; here it is UNCONDITIONAL. The guard reads state this declaration cannot see.",
+        "severity": "warning",
+        "why": "A store the source makes conditionally, made unconditionally, accepts a value the source would have dropped. The alternative is to withhold the declaration, and that is worse: the READ side is derived from the same source and is right, so withholding to avoid one wrong write throws away every correct read with it. A warning states the difference where a reader of the output will meet it; a gap would state that nothing was emitted, which would be false.",
+        "oracle": "a trace sees it only when the guard is FALSE at a moment the trace writes. Recorded traces so far set the guard before writing — which is the ordinary driver sequence — so replay agrees while the difference is still there."
+      },
+      "measure": {
+        "tag": "SYNC",
+        "text": "C# `lock`. Structure preserved; TIMING IS NOT.",
+        "severity": "warning",
+        "why": "See locking.no_guarantee. This marker is the one that already existed; it is here now so that it is an instance of the mechanism rather than the only thing resembling one. Its tag and text are unchanged, so everything that already looked for it still finds it.",
+        "oracle": "invisible to trace replay by construction — replay is single-threaded, so no interleaving difference can appear in it."
+      },
+      "orderby": {
+        "tag": "WARN",
+        "text": "ordering is a PASS-THROUGH: the key selector is discarded and the sequence keeps its source order.",
+        "severity": "warning",
+        "why": "See linq.orderby_deviation. Faithful ordering needs the key's type and an Ord bound the converter cannot yet establish; a pass-through at least chains and compiles. It is WRONG wherever order is observable, which is a property of the caller and not knowable here.",
+        "oracle": "a trace sees it only if the ordering is observable through the recorded interface, which for a caller that consumes the sequence internally it is not."
+      },
+      "eager": {
+        "tag": "WARN",
+        "text": "a lazy sequence became an owned collection: it is evaluated EAGERLY, so enumeration side effects and their order differ.",
+        "severity": "warning",
+        "why": "See stdlib.ienumerable_deviation. The divergence is bounded — the source language already forbids mutating a collection during enumeration — so it is observable only for an infinite sequence or one whose enumeration has side effects. Bounded is not absent, and which side of the bound a given site falls on is not decidable from the signature.",
+        "oracle": "not covered. Evaluation order is not part of any recorded interface."
+      },
+      "narrowed": {
+        "tag": "WARN",
+        "text": "a value outside the declared set has no variant here: the source keeps the number, this falls back to the default.",
+        "severity": "warning",
+        "why": "C# lets an enum hold any value of its underlying type, so a cast of an out-of-range number keeps that number. Rust enums are closed, so a conversion has to decide, and the only faithful-ish choice is a default. Whether the fallback is reachable depends on how wide the value that reaches it can be, which is a property of the caller and not of this mapping.",
+        "oracle": "a trace sees it only when an out-of-range value is actually written, which no captured trace so far does."
+      },
+      "multicast": {
+        "tag": "WARN",
+        "text": "a multicast event collapsed to ONE subscribe: there is no unsubscribe, and a second subscriber replaces the first.",
+        "severity": "warning",
+        "why": "See interface_traits.event_deviation and stdlib.delegates. A boxed closure has no identity, so removal has no form. The corpora seen so far attach exactly one handler, which makes the narrowing harmless HERE and not harmless in general.",
+        "oracle": "not covered. Handler registration is not visible through a recorded interface."
+      }
+    },
+    "header_bullet": "A warning summarised in a file header is bulleted `!`, not `-`. Three separate tools count a `//!   - ` line as a GAP, and a warning is the opposite of a gap — it emitted. Sharing the bullet made the first twelve warnings arrive in the gap census as twelve new uncategorised gaps, which is exactly the metric contamination the tiers exist to prevent.",
+    "ratchet": "The count of marked sites is a number on the scorecard, per identifier. It is allowed to fall and it is allowed to rise when a new deviation is found and declared — what it may not do is stay flat because a deviation went unmarked."
+  },
+  "deviations": [
+    {
+      "construct": "integer overflow",
+      "csharp": "wraps silently in an unchecked context; throws OverflowException in a checked one",
+      "rust": "panics in debug, wraps in release",
+      "mapping": "IMPLEMENTED as a RUNTIME CALL, not a template. `operators.runtime` redirects Add/Subtract/Multiply on an integral type to `csharp_rt::unchecked_*` or `csharp_rt::checked_*`, chosen by the `checked` flag the ingest already records. The definition and its tests are in `src/csharp-rt/src/arith.rs`.",
+      "status": "landed 2026-08-03. The previous two states of this entry are the argument for the fourth layer: it first claimed arithmetic emitted `wrapping_*` when the only occurrence of `wrapping_` anywhere under scripts/ or rulesdb/ was that sentence, and was then corrected to say so. A semantic spelled out at every site has nowhere to put a test, so nothing noticed for as long as the claim stood. `csharp_rt::unchecked_add` has one definition and seven tests.",
+      "why_not_a_template": "`{lhs}.wrapping_add({rhs})` would have been a possible template, and it is the wrong shape for three reasons. It does not typecheck on a reference receiver where `+` does; it cannot express the checked direction at all, because C# throws and there is no operator that throws; and it puts the decision about what `checked` becomes at 900 sites instead of one, which is where it has to be when D4 settles.",
+      "why": "The divergence runs BOTH ways and neither direction is safe. Unchecked C# wraps where Rust debug panics; checked C# throws where Rust release wraps silently. Renode's peripherals rely on wrapping for counters and timers, so a debug panic there is a behaviour change the oracle would catch late and confusingly -- and the checked direction is a divergence no test would catch at all.",
+      "scope": "Binary Add/Subtract/Multiply and the matching compound assignments, on an integral non-lifted operand. NOT unary minus -- see operators.unary_checked_gap, which names the ingest fact that is missing. NOT lifted (Nullable<T>) operators, 11 in the cut: those need the D4 nullability form before an arithmetic mapping means anything.",
+      "prior_art": "c2rust emits wrapping_* for translated integer arithmetic as a matter of course."
+    },
+    {
+      "construct": "shift count",
+      "csharp": "the count is MASKED to the operand width -- ECMA-334 §12.11 takes the low five bits for int/uint and the low six for long/ulong, so `1 << 32` is 1 and `1 << -1` is `1 << 31`",
+      "rust": "`<<` panics in debug when the count is at least the operand width, and is a deny-by-default lint for a constant one",
+      "mapping": "`csharp_rt::shl` / `csharp_rt::shr`, via operators.runtime.shift.",
+      "status": "landed 2026-08-03, and found by this audit rather than reported -- the shift entries in operators.binary read as an exact rename and are not one. 255 shifts in the cut, every one of them mapped to an operator that means something different for an out-of-range count.",
+      "why": "This is the failure class the project keeps paying for: an operator that agrees with C# on every input anyone tested and disagrees on the one a firmware bug produces. A register-derived shift count is exactly the value most likely to be out of range, and a debug panic is the good outcome -- a release build wraps to a different answer with no message.",
+      "why_a_runtime_function": "`{lhs}.wrapping_shl({rhs} as u32)` is again a possible template and again the wrong shape: it states an IMPLEMENTATION of the masking rule at every site, so the citation for why the mask is right cannot travel with it, and nothing can test it."
+    },
+    {
+      "construct": "C# `bool` in bitwise position",
+      "csharp": "`&` and `|` are valid on bool",
+      "rust": "valid on bool, same semantics",
+      "mapping": "direct",
+      "why": "Noted because `&&`/`&` differ in short-circuiting in both languages, so the OperatorKind distinction must be preserved, not normalised."
+    },
+    {
+      "construct": "null",
+      "csharp": "any reference may be null",
+      "rust": "Option<T>",
+      "mapping": "unresolved — needs nullability analysis",
+      "why": "Roslyn carries nullable annotations, but Renode is not annotated, so every reference is potentially null and blanket Option<T> would be noise. Deferred deliberately; see PLAN.md D4."
+    }
+  ],
+  "known_transpiler_bugs_fixed": [
+    {
+      "bug": "partial methods reported as having a body",
+      "cause": "used `!IsAbstract && !IsExtern`; a `partial void Foo();` declaration is neither",
+      "fix": "consult syntax, and follow IMethodSymbol.PartialImplementationPart",
+      "impact": "5,123 methods (24.7% of the corpus) claimed a body and emitted nothing"
+    },
+    {
+      "bug": "generic call targets unresolved",
+      "cause": "keyed on the constructed generic; `WithFlag<DoubleWordRegister>` does not match the declaration `WithFlag<T>`",
+      "fix": "key on ISymbol.OriginalDefinition",
+      "impact": "1,109 register-DSL calls resolved as external, which would have made the entire work queue wrong"
+    },
+    {
+      "bug": "named arguments bound positionally",
+      "cause": "C# named arguments may skip earlier optionals",
+      "fix": "use IArgumentOperation.Parameter, which Roslyn already resolved",
+      "impact": "a register's name was read as its reset value"
+    },
+    {
+      "bug": "binary and unary operators unrecorded",
+      "cause": "OperatorKind not extracted",
+      "fix": "record it",
+      "impact": "no expression could be emitted at all"
+    },
+    {
+      "bug": "field and property references discarded their receiver",
+      "cause": "every reference emitted as `self.<name>`; the receiver child was never read",
+      "fix": "emit the receiver, treating only InstanceReference as `self`",
+      "impact": "1,555 of 5,915 references (26%) read the wrong object -- `receiveFifo.Count` became `self.count()`",
+      "why_it_hid": "the two peripherals converted so far access state through `this`, so both generated files were byte-identical and correct while the rule was wrong for a quarter of the corpus. Found only by emitting a lambda body, which is the first code that reaches through a named receiver. This is the breadth-is-a-health-check rule earning its place."
+    },
+    {
+      "bug": "pattern operators unrecorded",
+      "cause": "IRelationalPatternOperation.OperatorKind and IBinaryPatternOperation.OperatorKind not extracted, though IBinaryOperation's has been read since the fourth fix above and it is the same enum",
+      "fix": "record both, in the same column the expression operator kinds use",
+      "impact": "`> 5` was indistinguishable from `< 5`, and `and` from `or`, on 21 pattern nodes",
+      "why_it_hid": "the hand-typed corpus cut contained no C# pattern matching whatsoever, so the kinds never appeared. Surfaced the first time the ingest read the whole tree."
+    },
+    {
+      "bug": "field, property and event INITIALISERS were not walked",
+      "cause": "operations were walked only for members that had a method; an initialiser written at the declaration belongs to a field, which has none",
+      "fix": "walk the declaration's EqualsValueClause -- GetOperation returns the IFieldInitializerOperation / IPropertyInitializerOperation directly -- and attach the tree to the member. Const fields and enum members are excluded because their value is already on the member row, and re-recording it would be a second source of truth",
+      "impact": "1,414 initialisers, 30,719 operation nodes, absent from the corpus entirely. `private bool x = true;` was indistinguishable from `private bool x;`, which INVERTS the initial value; and an array's declared length existed nowhere, so a length could only be inferred from the highest index later code happened to use -- which is smaller, and compiles",
+      "why_it_hid": "an inferred length is not an error and an unstated initial value is not an error. Nothing reads an element no code binds, so the short array behaved identically under every test; the difference is visible only against the declaration",
+      "schema": "operation.method_id, call_site.caller_id and field_access.method_id referenced method(member_id) and now reference member(id). The constraint encoded the assumption that only methods contain code",
+      "why_the_first_attempt_was_reverted": "not the walker, which was correct. It was measured by a re-ingest run through `dotnet run --no-build`, which executes whatever is already in bin/ -- so the walk that produced 'zero field-attached operations' was the OLD binary. Rebuilding that same branch's Walker.cs from source produces 30,139 field-attached operations. scripts/check_determinism.py and scripts/check_breadth.py now build before their --no-build runs, and Ingest.cs now counts and names every row the write discards, so neither half of that failure can recur in silence"
+    },
+    {
+      "bug": "parameter default VALUES unrecorded",
+      "cause": "only the has_default FLAG was read; IParameterSymbol.ExplicitDefaultValue was not",
+      "fix": "record the value, invariant-culture. NULL means either no default or a default of null, and has_default separates the two -- a \"null\" sentinel string would collide with the literal \"null\"",
+      "impact": "2,698 optional parameters said they were optional without saying what omitting one MEANS, which is the entire content of an optional argument and of folding a constructor into Default. 1,741 carry a non-null value",
+      "why_it_hid": "no consumer existed. Optional arguments were deferred on instance count, so nothing ever asked the corpus for the value and found it missing"
+    },
+    {
+      "bug": "IUnaryOperation.IsChecked unrecorded",
+      "cause": "the detail switch had a case for IBinaryOperation and none for IUnaryOperation, though both expose IsChecked and IsLifted",
+      "fix": "record checked and lifted for unary too",
+      "impact": "all 4,360 Unary rows had empty detail where every Binary row carried one, so unary minus could not be routed to the runtime the way Subtract was. 2 sites are checked; `-int.MinValue` is the case that separates them",
+      "why_it_hid": "routing on an ASSUMED unchecked context is a guess that looks like a mapping, and it is right almost everywhere -- the two sites where it is not are the whole point"
+    },
+    {
+      "bug": "exception filter presence unrecorded",
+      "cause": "ICatchClauseOperation.Filter was not read; CatchClause was declared structural",
+      "fix": "record filter presence and the exception type on every catch clause",
+      "impact": "5 of 268 catch clauses have a `when` filter. A filter runs BEFORE unwinding and may DECLINE, so it is not an `if` at the top of the handler; without the fact, translating one away leaves no trace",
+      "why_it_hid": "recorded in the issue as 0 tree-wide, which was never re-counted after the corpus stopped being a hand-picked subset. The fact was requested so a FUTURE corpus would fail loudly; the current one already contains five"
+    }
+  ],
+  "statements": {
+    "note": "Statement structure, generic to C# and Rust. Covers 96% of statements directly under a Block in this corpus (ExpressionStatement 2384, Return 1268, Conditional 699, VariableDeclarationGroup 573).",
+    "Return": {
+      "with_value": "return {value};",
+      "bare": "return;"
+    },
+    "Conditional": {
+      "if": "if {cond} {{\n{then}\n}}",
+      "if_else": "if {cond} {{\n{then}\n}} else {{\n{else}\n}}",
+      "ternary": "if {cond} {{ {then} }} else {{ {else} }}"
+    },
+    "VariableDeclarator": {
+      "with_init": "let mut {name} = {init};",
+      "bare": "let mut {name};"
+    },
+    "SimpleAssignment": {
+      "default": "{target} = {value};"
+    },
+    "ConditionalAccess": {
+      "note": "`x?.Foo()`. C# short-circuits on null; Rust's equivalent depends on whether x is Option<T>, which needs the nullability analysis deferred in D4. Emitted as a marked gap rather than a guess.",
+      "emit": "/* GAP: `?.` needs nullability analysis (D4) */"
+    }
+  },
+  "invocations": {
+    "note": "Generic method calls. A call on `this` becomes a self-call; a call on an object becomes a method call on the translated receiver. Project rules match FIRST, so an idiom like IRQ.Set can override this.",
+    "instance": "{receiver}.{method}({args})",
+    "self": "self.{method}({args})",
+    "static": "{type}::{method}({args})"
+  },
+  "lambdas": {
+    "note": "A C# lambda capturing `this` cannot be stored inside the object it captures (see renode-regs' module docs). It becomes a FREE FUNCTION taking what it captured as parameters. The body is ordinary statements, so the statement rules apply unchanged.",
+    "free_fn": "fn {name}({params}) -> {ret} {{\n{body}\n}}",
+    "reference": "Some({name})"
+  },
+  "references": {
+    "note": "A C# property read is a getter call. It has a RECEIVER, which must be emitted: ignoring it turned `receiveFifo.Count` into `self.count()`, silently reading the wrong object. `this.X` and bare `X` both parse to an InstanceReference receiver, so the two forms need no separate rules.",
+    "PropertyReference": {
+      "instance": "{receiver}.{name}()",
+      "self": "self.{name}()",
+      "static": "{type}::{name}()"
+    },
+    "FieldReference": {
+      "instance": "{receiver}.{name}",
+      "self": "self.{name}",
+      "static": "{type}::{name}"
+    },
+    "ArrayElementReference": {
+      "note": "`a[i]`. Rust indexes with usize, and C# array indices are int/uint here, so the index is converted at the site.",
+      "emit": "{array}[{index} as usize]"
+    },
+    "ArrayElementReference2D": {
+      "note": "`a[i, j]` on a rectangular array. Two indices arrive as two index children, which is how a 2D access is told apart from a 1D one without consulting the declared type.",
+      "emit": "{array}.get({row} as usize, {col} as usize)"
+    },
+    "Indexer": {
+      "note": "`x[i]` on a collection whose C# indexer takes `int` -- List<T>, IList<T>, string, StringBuilder, and similar. Roslyn models an indexer as a property named `Type.this[KeyType]`, not a plain subscript, so without this rule the generic PropertyReference reader's dotted-name walk renders the literal text `this[int]`, which is not Rust syntax. Scoped to an `int` key deliberately: a `TKey`-keyed indexer (Dictionary and friends) is a map lookup, not a sequential index, and needs different Rust (`.get(&key)`), which this rule does not attempt.",
+      "emit": "{receiver}[{index} as usize]"
+    },
+    "ConstantField": {
+      "note": "A C# `const` field has NO STORAGE -- the compiler folds its value into every use site, and Roslyn reports the folded constant. Emitting a field access instead named a struct member that cannot exist. Applies only where the DECLARING TYPE is a class: an enum member is also a folded constant, and the enum rule maps it to a named Rust constant, which is better than a bare number.",
+      "emit": "{value}"
+    }
+  },
+  "stdlib": {
+    "note": "The .NET BCL to Rust std correspondence. Generic to the two languages, so it belongs here and not in a project rule -- nothing below mentions Renode. 336 uses across 38 distinct members in this corpus. Only members with >=3 uses are listed; the rest are patches until a third instance appears, per the min_instances_required rule.",
+    "types": {
+      "Queue": "std::collections::VecDeque",
+      "List": "Vec",
+      "Dictionary": "std::collections::BTreeMap",
+      "HashSet": "std::collections::HashSet",
+      "StringBuilder": "String",
+      "IEnumerable": "Vec",
+      "IList": "Vec",
+      "IReadOnlyList": "Vec",
+      "IDictionary": "std::collections::BTreeMap",
+      "IReadOnlyDictionary": "std::collections::BTreeMap",
+      "DateTime": "std::time::SystemTime"
+    },
+    "interface_types_note": "The BCL COLLECTION INTERFACES, added because an interface's own signatures are stated in terms of them: 93 uses of IEnumerable, 21 of IReadOnlyDictionary, 11 of IList in this corpus, all above the >=3 threshold. Each maps to the same Rust type its concrete sibling does, so a signature and its implementation agree.",
+    "warn_types": {
+      "note": "C# type name -> the severity.warnings identifier its mapping carries. Read by the type mapper, which cannot place a marker itself -- a comment inside a nested generic risks the build, and a marker may never do that -- so it queues one and whoever emits the DECLARATION places it on the line above.",
+      "IEnumerable": "eager",
+      "why_not_the_others": "IList and IReadOnlyList also become Vec, and that is not a deviation: both are already materialised collections in the source. Only the lazy one changes evaluation."
+    },
+    "ienumerable_deviation": "IEnumerable<T> to Vec<T> is a DEVIATION and not an equivalence: C# enumeration is lazy and Vec is materialised. It is bounded rather than free-floating -- C# already forbids mutating a collection while enumerating it (InvalidOperationException), so eager evaluation can only be observed for an infinite sequence or one whose enumeration has side effects. Neither appears in a signature translated so far; if one does, it needs Box<dyn Iterator> and that is a different rule, not a tweak to this one.",
+    "datetime_deviation": "System.DateTime to std::time::SystemTime maps the TYPE only. DateTime is a calendar instant with Year/Month/Day and arithmetic; SystemTime is an opaque point in time with none of that. So a signature mentioning DateTime translates, and any MEMBER ACCESS on one still reports a gap rather than guessing -- which is the intended split. A calendar type in csharp-rt is the answer if member access is ever needed; it is not needed to state a signature, and inventing it before then would be a type with no caller.",
+    "no_rust_form": {
+      "note": "BCL types deliberately left UNMAPPED, with the reason. Absence here is a decision, not an oversight, and each one is reported as a blocker by name rather than approximated.",
+      "System.Type": "Reflection. PLAN.md puts reflection in the bucket that stays hand-written; a Rust TypeId is not a System.Type and code that switches on one does not translate.",
+      "System.IDisposable": "Rust expresses disposal as Drop, which is not a callable trait object -- there is no `dyn IDisposable` that means what C# means. A signature taking one needs the concrete type instead.",
+      "System.Collections.Generic.IEnumerator": "An explicit enumerator is a state machine, not a collection; Rust's Iterator is a trait rather than a type, so this needs a generic parameter and a bound rather than a type substitution.",
+      "System.Collections.Generic.ICollection": "Two uses in this corpus, below the >=3 threshold. It stays a patch until a third appears."
+    },
+    "members": {
+      "Queue.Count": "{recv}.len()",
+      "Queue.Dequeue": "{recv}.pop_front().unwrap()",
+      "Queue.Enqueue": "{recv}.push_back({args})",
+      "Queue.Peek": "*{recv}.front().unwrap()",
+      "Queue.Clear": "{recv}.clear()",
+      "List.Count": "{recv}.len()",
+      "List.Add": "{recv}.push({args})",
+      "Array.Length": "{recv}.len()",
+      "Dictionary.Add": "csharp_rt::dict_add(&mut {recv}, {args})",
+      "HashSet.Contains": "{recv}.contains(&{args})",
+      "Nullable.Value": "{recv}.unwrap()",
+      "Nullable.HasValue": "{recv}.is_some()",
+      "StringBuilder.Append": "{recv}.push_str({args})",
+      "StringBuilder.ToString": "{recv}.clone()",
+      "CancellationToken.IsCancellationRequested": "{recv}.get()",
+      "CancellationTokenSource.Cancel": "{recv}.set(true)",
+      "Action.Invoke": "if let Some(f) = {recv}.as_mut() {{ f({args}) }}",
+      "Func.Invoke": "if let Some(f) = {recv}.as_mut() {{ f({args}) }}"
+    },
+    "unwrap_note": "Dequeue/Peek panic on an empty collection in C# too (InvalidOperationException), so `.unwrap()` is the faithful mapping, not a shortcut. Recorded because an unwrap otherwise looks like an unhandled error path. It is nonetheless the SAME error-mode case `linq.First` was moved to the runtime for, and it stays a template only because the panic message is the only difference until D4 settles what an exception becomes. When it does, these move together.",
+    "key_is_the_csharp_type_note": "A member key is `<C# declaring type>.<member>`, and the lookup builds it from the resolved symbol. Two entries were keyed on the RUST type instead -- `String.Append` and `String.ToString`, for members whose symbol is `System.Text.StringBuilder.Append` -- so neither could ever match any symbol. A rule that cannot fire is worse than a missing one: it counts as coverage, it is never exercised, and nothing tests it. Corrected to `StringBuilder.*` 2026-08-03. `ToString` additionally becomes `clone()` rather than `to_string()`, because StringBuilder maps to String and `String::to_string` is a needless copy of an owned value that clippy rejects.",
+    "array_clear_gap": "`Array.Clear` was mapped to `{recv}.fill(Default::default())` and is REMOVED, not replaced. Two things were wrong at once. It is a STATIC method -- `System.Array.Clear(array, index, length)` -- so there is no receiver child and the member lookup could not have bound `{recv}` correctly in the first place, the same shape as the LINQ extension methods. And the only form in the cut is the THREE-argument one, which clears a RANGE; the template dropped both the index and the length and cleared the whole array. Clearing more than asked is invisible in a trace whose reads happen to land outside the range. Restoring it needs the static-receiver handling LINQ has, plus a range helper in the runtime, and neither is worth inventing for 3 sites -- so this is a gap with its reason, which is the discipline.",
+    "primitives": {
+      "byte": "u8",
+      "sbyte": "i8",
+      "short": "i16",
+      "ushort": "u16",
+      "int": "i32",
+      "uint": "u32",
+      "long": "i64",
+      "ulong": "u64",
+      "bool": "bool",
+      "char": "char",
+      "string": "String",
+      "float": "f32",
+      "double": "f64",
+      "nint": "isize",
+      "nuint": "usize"
+    },
+    "native_int_note": "nint/nuint are C#'s native-sized integers and isize/usize are exactly that, so this is an equivalence rather than an approximation. Listed because they read like an alias for long and are not: on a 32-bit host they are 32 bits, and a translation that used i64 would silently widen a pointer-sized value.",
+    "generic_form": "{outer}<{inner}>",
+    "delegates": {
+      "note": "A C# delegate-typed member is a callback slot. C# allows multicast (many subscribers); the corpora seen so far attach exactly one, so a single Option<Box<dyn FnMut>> is faithful HERE and is recorded as a narrowing rather than a silent equivalence. Arity is not enumerated: Func<A,B,R> and Action<A,B> differ only in whether the LAST type argument is a return type, which is a rule about the two generic families, not a table of every shape.",
+      "Action": "Option<Box<dyn FnMut({params})>>",
+      "Func": "Option<Box<dyn FnMut({params}) -> {ret}>>",
+      "bare_action": "Option<Box<dyn FnMut()>>",
+      "why_fnmut": "FnMut, not Fn: a C# delegate may mutate what it captured, and FnOnce would forbid the repeated invocation every one of these sites performs."
+    },
+    "array_form": "Vec<{inner}>",
+    "array_note": "A C# array maps to Vec, not a fixed-size Rust array: the lengths here come from constructor arguments rather than the type, so a fixed size is not available at the declaration.",
+    "fully_qualified_note": "Collection types are emitted FULLY QUALIFIED rather than relying on a `use` line. An emitter that tracks which imports its output needs is bookkeeping that can only ever be wrong -- it was already a hand-written conditional here scanning for the substring 'VecDeque'. Qualifying at the use site deletes the bookkeeping and cannot go stale when a new type is added to this table. Adopted from paiml/depyler DEPYLER-0623, which reached the same conclusion for Python-to-Rust; the lesson is about Rust emission and so does not depend on the source language.",
+    "iteration_order_note": "Dictionary maps to BTreeMap, not HashMap. C# Dictionary enumeration order is unspecified but in practice stable for a given insertion sequence, and translated code DOES iterate dictionaries. Rust's HashMap randomises per process via SipHash, so the same program would produce a different order on every run -- a behavioural difference the trace oracle would see as nondeterminism rather than as a bug, which is the worst way to find it. BTreeMap is deterministic. Recorded as a DEVIATION: ordering is by key rather than by insertion, so it is not identical to C#, only stable. From Bun's PORTING.md, which bans HashMap for the same reason.",
+    "nullable_form": "Option<{inner}>",
+    "nullable_note": "`T?` on a VALUE type is System.Nullable<T>, which has an exact Rust spelling and needs no inference: the C# type system already states the value may be absent. This is the half of nullability that is free. It is NOT the reference-type case -- `string?` on an unannotated corpus says nothing, and that is the deferred D4 analysis.",
+    "nullable_members_note": "The TYPE was mapped and its MEMBERS were not, so `x.Value` fell through to the generic property rule and emitted `x.value()` -- a getter call on Option<T>, which does not exist. 18 sites in the cut, plus 8 of `HasValue`. Adding the two members costs nothing and is not a D4 question: the value-type half of nullability is already decided, and `Value`/`HasValue` are exactly `unwrap`/`is_some` on the type it was decided to be. `Nullable<T>.Value` throws InvalidOperationException when empty and `.unwrap()` panics, which is the same error-mode narrowing recorded in unwrap_note and moves with it when D4 settles.",
+    "multidim_form": "csharp_rt::Array2D<{inner}>",
+    "multidim_note": "C# `T[,]` is RECTANGULAR -- one allocation, two indices, every row the same length -- and arrives from Roslyn as `T[*,*]`. Vec<Vec<T>> is the obvious mapping and is wrong three ways: raggedness becomes representable when C# forbids it, `new T[3,4]` yields 12 usable slots where a Vec<Vec<T>> starts EMPTY and panics on first index unless every construction site remembers to fill it, and `a.Length` is rows*cols rather than the row count. csharp-rt::Array2D carries its stride, makes raggedness unrepresentable, and forces initialisation in the constructor. Runtime support is the standard answer here -- IL2CPP ships libil2cpp for exactly this class of thing.",
+    "runtime_crate_note": "`csharp-rt` holds types C# has and Rust does not. A type earns a place there only when the approximation is OBSERVABLY different: Queue<T> does not qualify because VecDeque matches it, T[,] does. Nothing in the crate knows what is being translated.",
+    "invoke_note": "`d.Invoke(x)` on a delegate field. The field is Option<Box<dyn FnMut>>, so a bare call does not typecheck -- rustc says `no method named invoke`. C# invoking a null delegate throws; this SKIPS instead, which is the same shape as `d?.Invoke(x)` and differs for a bare `d.Invoke(x)` on null. Recorded as a deviation: the alternative is an unwrap that panics, and every site in this corpus is the null-conditional form. The guarded form is a STATEMENT: `if let ... {}` has type () and rustc reports E0317 where a value is wanted. Expression-position invocation needs a different shape and is left unhandled rather than given an `else` arm returning a fabricated default -- which would compile and be wrong."
+  },
+  "field_collision": {
+    "note": "Rust has no inheritance, so a base class's storage is merged into the subclass's struct. Two levels of one chain may declare the same name -- the same C# spelling, or two spellings that become one after snake_case -- and merging then declares the field twice, which is rustc E0124: the struct does not compile at all. Two ancestors can collide with each other even when the subclass declares neither, so every pair of levels is compared, not just each ancestor against the subclass.",
+    "action": "withhold EVERY copy of a colliding name, report a gap naming the declaring classes",
+    "why_all_copies": "Keeping one copy would pick a winner -- and the wrong one half the time, since the reader of the field is whichever level declared the code that touches it. A field that silently resolves to the other level's storage is behaviourally wrong code that compiles, which is the failure class this project keeps paying for. Withholding both makes every use site report a gap instead.",
+    "gap": "state field `{name}`: declared at {levels} of one chain, which merge into one struct -- rustc E0124. Every copy is withheld; the layout question is open",
+    "why_a_gap_not_an_error": "A named gap is this project's stated discipline for something the converter cannot do. An E0124 says the same thing later, in a language the census cannot count, after the file has already been published as a translation.",
+    "guard_must_fire": "scripts/check_inheritance.py builds a two-level corpus that collides and asserts the gap appears and the duplicate does not. A guard nobody has seen fire is worth nothing; this project has shipped three checks that reported success while verifying nothing."
+  },
+  "dispatch_traits": {
+    "note": "Virtual dispatch as a Rust trait. A class that is inside the corpus, has at least one subclass inside the corpus, and declares public virtual or abstract members, defines a dispatch contract; its subclasses implement it and a caller holding `dyn Contract` reaches whichever body the subclass supplies. Generic to C#: it needs no interface to be present, which matters because an interface declared outside the corpus has unknown members and a trait declared from one would have members chosen by hand rather than derived.",
+    "resolution": "STRICT. A trait method forwards to the PLAIN emitted name or the method leaves the trait; it never falls back to the `{base}_{name}` copy. The flattening rule gives the plain name to the most-derived body and the qualified name to the base's, so the qualified name is exactly the set of bodies a vtable must never reach -- it is what an explicit base call reaches. The obvious fallback resolver gave three of four subclasses a `reset` that ran the BASE's body, because each of them overrides it in C# and each override was withheld for an unrelated reason. That compiles and a replay oracle cannot see it. scripts/check_inheritance.py fails if any emitted forward ever names a qualified copy, and fails equally if the permissive resolver stops being able to demonstrate the bug -- a guard that can no longer fire is not a guard.",
+    "shrinking_contract": "A trait method must be supplied by EVERY implementor, so one untranslatable base member removes the method for all of them at once. It cannot be stubbed: a stub returning a default is the unmapped-return-type-becomes-`-> ()` bug wearing a trait's clothes. This is a real cost of the trait model and it was accepted knowingly, not discovered.",
+    "signatures_from_implementors": "Parameter and return types are read back out of the modules that will implement the trait, not mapped from C# a second time. A second mapping engine can disagree with the one that emitted the bodies, and it would disagree silently -- as a signature mismatch only rustc sees. Implementors that do not agree on a signature lose the method, and the disagreement is named.",
+    "decl": "pub trait {name} {{",
+    "method": "    fn {name}(&mut self{extra}) -> {ret};",
+    "impl_decl": "impl {trait} for {ty} {{",
+    "impl_method": "    fn {name}(&mut self{extra}) -> {ret} {{",
+    "deviation": "\nDEVIATION -- the trait is derived from a base CLASS, not from the\ninterface dispatch actually goes through. The corpus does not hold those\ninterfaces: their members are unknown, so a trait declared from one would\nhave members chosen by hand rather than derived. A base class with virtual\nmembers is a genuine dispatch contract and is what the corpus can supply --\nbut it is a DIFFERENT type with a different name, so a C# test of the form\n`x is ISomething` is not served by this trait. If the ingest is never closed\nover declared interfaces this stays a permanent approximation, so it is\nwritten here, in the output, where it cannot be mistaken for a translation.",
+    "deviation_why_in_output": "An approximation recorded only in a decision document stops being an approximation and becomes a mistranslation nobody is looking for. The output is the artefact people read."
+  },
+  "interface_traits": {
+    "note": "A C# interface becomes a Rust trait containing EVERY member it declares and every interface it inherits, or it is not emitted at all. Generic to the two languages: nothing here knows what the interface describes.",
+    "decision": "Supersedes the earlier translatability-driven subset. A trait whose membership is a function of the converter's current maturity cannot be depended on -- it changes shape as mappings land, and a name like the one it carries then means something different from one week to the next. Complete-or-withheld makes the missing work a MEASUREMENT instead: every blocked member is reported with a reason, and the reasons are different kinds of work.",
+    "decl": "pub trait {name}{params}{bounds} {{",
+    "method": "    fn {name}(&mut self{extra}) -> {ret};",
+    "param": ", {name}: {type}",
+    "setter_name": "set_{name}",
+    "event": "    fn {name}(&mut self, handler: {handler});",
+    "event_name": "subscribe_{name}",
+    "object_ref": "std::rc::Rc<std::cell::RefCell<dyn {name}>>",
+    "by_ref": "&mut {inner}",
+    "receiver_note": "Every method takes &mut self, including a property getter. C# interface members are all callable on a mutable instance and a getter may have side effects, so &self would be a claim about purity that the source does not make. Narrowing a getter to &self needs the purity fixpoint, which is a separate analysis.",
+    "accessor_note": "A property arrives from the corpus three times over -- once as the property and once per accessor method. The accessors are the emitted form because they carry the parameter list; the property row is dropped only when an accessor for it exists, so a property with neither is reported rather than lost. The getter keeps the property's name and the setter takes a prefix, which stops the pair collapsing onto one name and silently dropping the setter.",
+    "out_param_note": "C# `out` and `ref` both become &mut. `out` additionally promises the callee assigns before returning, which Rust cannot state; the direction is preserved and the promise is not, which is a narrowing rather than a change of behaviour.",
+    "nullability_note": "A reference-typed parameter is NOT wrapped in Option. The corpus is not nullable-annotated, so every reference is potentially null and blanket Option would be noise -- the deferred D4 analysis recorded under deviations, applied consistently here rather than decided separately for signatures.",
+    "object_ref_note": "An interface-typed parameter or return becomes the shared, interior-mutable handle the object-graph rule uses for a field of that type. The alternative, a plain borrow, would make lifetimes part of every signature and the graph is cyclic, so no lifetime can be stated.",
+    "event_warning": "multicast",
+    "event_deviation": "A C# event becomes ONE subscribe method. C# offers add and remove over a multicast delegate; a boxed closure has no identity, so remove has no form, and the single-subscriber narrowing is the one already recorded in stdlib.delegates. Emitted files state this in their header — and now, via `event_warning`, at every site, because a header note is read once and a member is read every time.",
+    "bcl_namespaces": ["System."],
+    "blocker_reasons": {
+      "note": "The reason names the converter reports. They are separate because each is a different piece of work, and merging them would hide which.",
+      "type_not_in_corpus": "The named type was never ingested. No converter change can fix it -- its shape is unknown -- so this counts the cost of the ingest boundary, not of the transpiler.",
+      "type_without_definition": "The type IS in the corpus but no Rust definition is emitted for it. The mapping is settled; the target does not exist yet, so emitting the signature would not compile.",
+      "interface_withheld": "It names an interface that is itself withheld. Transitive, and resolved to a fixpoint so a mutually-referring pair is judged together rather than each blamed for the other.",
+      "generic_method": "The member declares its own type parameters. Holding an interface as `dyn` requires object safety, and a generic method forbids it. `where Self: Sized` restores object safety by making the method uncallable through `dyn`, which is a member that is not there.",
+      "overload": "Two members share a name. Rust traits have one method per name; renaming needs a rule the call sites use too, and inventing names here would break every caller.",
+      "bcl_unmapped": "A BCL type with no mapping. Either deliberate -- see stdlib.no_rust_form -- or below the >=3 threshold.",
+      "type_argument_without_value_form": "An inherited interface is parameterised by a type with no by-value mapping. A supertrait bound takes the TYPE, and substituting the shared handle instead would name a different trait -- one that compiles and means something else.",
+      "property_without_accessor": "A property the corpus records with no accessor method, so there is no parameter list to emit from."
+    }
+  },
+  "coercions": {
+    "note": "Rust does not implicitly widen. A computed FLAG's lambda returns bool while the DSL's value callback returns u64, so the bool must be converted at the return. C# has the same conversion, it is just implicit there, so this is a spelling difference and not a deviation. A computed ENUM field is the same case: C# returns the enum and the DSL widens it to the register's value, so Rust spells the discriminant conversion.",
+    "bool_to_u64": "u64::from({expr})",
+    "enum_to_u64": "{expr} as u64"
+  },
+  "conversions": {
+    "note": "C# widens numerically without being asked (`uint value = receiveFifo.Dequeue()` on a Queue<byte>). Rust never does, so an implicit NUMERIC conversion becomes an explicit cast. Non-numeric implicit conversions -- boxing, interface upcasts -- are still transparent, because they have no Rust spelling and inserting one would be noise. The corpus records both flags on the Conversion node.",
+    "numeric": "({expr} as {target})",
+    "parens_note": "The cast is PARENTHESISED. Unparenthesised, `x as i32 << 8` is a rustc hard error -- `<<` after a type name is read as the start of generic arguments, not a shift. It does not produce a wrong answer; it does not parse. Found by COMPILING everything the converter emits rather than by reading it: 11 of the 50 errors in the first such run were this one construct, in code the converter was confident about."
+  },
+  "strings": {
+    "note": "C# `$\"...{expr}...\"` becomes format!. The corpus records the pieces as InterpolatedStringText and Interpolation children in source order, so the format string is rebuilt from them rather than reparsed from the literal.",
+    "interpolated": "format!(\"{fmt}\"{args})",
+    "hole": "{}",
+    "nameof": "\"{name}\"",
+    "nameof_note": "`nameof(X)` is a compile-time constant in C#; Roslyn already folded it, so it emits as the literal name."
+  },
+  "delegates_expr": {
+    "note": "`_ => Foo(x)` in argument position becomes a Rust closure. This is the one place a lambda stays a closure rather than becoming a free fn: it is passed straight to a call and never stored on the peripheral, so it cannot outlive the borrow it captures.",
+    "closure": "|{params}| {body}",
+    "single_expression": "A closure whose body is one `return X;` emits as `|p| X`. Rust closures are expressions, and `|x| return x.foo()` is legal but reads as a statement body -- and inside an iterator chain the parenthesisation differs enough to break. Emitted as the expression it is."
+  },
+  "literals": {
+    "note": "A C# floating literal must keep its fraction in Rust: `16.0` emitted as `16` turns an f64 division into integer division, silently changing the result.",
+    "float_suffix": ".0"
+  },
+  "loops": {
+    "note": "For, ForEach, While and Do all arrive from Roslyn as kind `Loop` and are told apart by LoopKind, which the ingest now records. Rust has no C-style for, so a `for(init; cond; incr)` becomes init followed by a while whose body ends with the increment -- an equivalence that holds because C# evaluates the increment after every body pass including one ending in `continue`, and there are no `continue` statements in this corpus. Recorded so the assumption is checkable rather than silent.",
+    "ForEach": "for {var} in {collection} {{\n{body}\n}}",
+    "For": "{init}\n{pad}while {cond} {{\n{body}\n{pad}    {incr}\n{pad}}}",
+    "While": "while {cond} {{\n{body}\n}}"
+  },
+  "increment": {
+    "note": "Rust has no ++/--. In STATEMENT position the distinction between prefix and postfix does not matter, since the value is discarded; in expression position it would, and there are no such uses in this corpus -- so only the statement form is mapped, and the expression form reports a gap rather than silently dropping the difference.",
+    "Increment": "{target} += 1;",
+    "Decrement": "{target} -= 1;"
+  },
+  "compound_assignment": {
+    "note": "`x += y`. The operator arrives as the same OperatorKind the binary table uses, so the mapping is derived from that table rather than duplicated -- retyping it would let the two drift, and a compound assignment silently using the wrong operator is invisible in review.",
+    "template": "{target} {op}= {value};",
+    "checked_note": "C# compound assignment on integers wraps in an unchecked context, exactly as the binary form does; the overflow deviation recorded for `Add` applies here unchanged. So it takes the SAME redirect: `operators.runtime` is consulted with the target as the left operand, and the same guards apply. The decision is read from one function shared with the binary rule, not copied -- two copies of `is this integral and unchecked` would drift, and a compound assignment quietly keeping the panicking operator is invisible in review.",
+    "runtime_template": "{target} = {expr};",
+    "runtime_target_kinds": ["LocalReference", "ParameterReference", "FieldReference"],
+    "runtime_target_kinds_why": "The target is emitted TWICE -- once read, once written -- so the redirect applies only where re-evaluating it is free and cannot be observed. A local, a parameter and a field are places; a property is a GETTER CALL, and C# evaluates it once, so duplicating it would turn one call into two. No integral compound assignment in the cut has any other target kind, and an indexer target would be the same hazard, so this is a guard against a shape that has not appeared rather than a description of one that has. Anything else keeps the operator and the pre-existing behaviour, unchanged."
+  },
+  "switch": {
+    "note": "C# `switch` becomes Rust `match`. C# requires an explicit `break` per section and Rust arms do not fall through, so the trailing Branch is DROPPED rather than translated -- it encodes a rule of C# syntax, not behaviour. A Branch that is NOT that break (a `goto case`) is real control flow and is reported as a gap instead, because silently dropping it would change behaviour.",
+    "match": "match {subject} {{",
+    "arm": "{labels} => {{",
+    "default_label": "_",
+    "label_sep": " | ",
+    "exhaustive_note": "Rust requires match arms to be exhaustive. A C# switch with no `default` is not, so one is added that does nothing -- which is exactly what C# does when no label matches.",
+    "pattern_context_note": "A match ARM is pattern context, where `as` is not legal. An enum member emitted for VALUE context as `X::Y as u64` therefore does not parse as a label -- `expected a pattern, found an expression`. So when the labels are enum members, the SUBJECT is converted instead and the arms match the enum itself. Accounted for 400 of 401 errors on the first whole-tree compile: one construct, in code the converter was entirely confident about.",
+    "subject_from_u64": "{enum}::from_u64({subject})"
+  },
+  "normalisations": {
+    "note": "Rules that REWRITE the source shape before the emit rules see it, rather than mapping it directly. A construct with no Rust spelling often has an exact C# equivalent that does -- rewriting to that equivalent is faithful and needs no new Rust concept. Precedent: CROWN inserts explicit null assignments into C before translating; py2many runs rewriter passes before backend dispatch; Kotlin's J2K recompiles and patches. Normalisations must be ORDERED and may need to run to a FIXPOINT, so they are a separate phase, not more emit rules.",
+    "max_passes": 8,
+    "max_passes_why": "Normalisations may feed each other, so they run to a FIXPOINT. A loop without a bound is a hang, and a hang in a converter looks like a slow corpus. Laertes needs 3 passes typically and 81 on libxml2; Kotlin's J2K caps at 10. Exceeding this cap is a HARD ERROR, not a silent stop: a normalisation that never settles is a bug in the rule set, and quietly emitting the half-normalised tree would hide it.",
+    "order_why": "Explicitly ordered, never by dict iteration. Output must be identical at -j1 and -j31, and two normalisations that match the same node give different results depending on which ran first.",
+    "passes": [
+      {
+        "order": 10,
+        "name": "ConditionalAccessStatement",
+        "matches": "ConditionalAccess whose value is discarded (statement position)",
+        "rewrite": "if {receiver} != null { {receiver}.{call} }",
+        "emit": "if let Some(x) = {receiver}.as_ref() {{\n{body}\n}}",
+        "why": "`x?.Foo();` in statement position discards the result, so the short-circuit is exactly an if-guard. This is a REWRITE, not a nullability analysis: it needs no decision about whether x is nullable, because the C# already said it might be.",
+        "limit": "EXPRESSION position is NOT covered. `var y = x?.Foo();` yields null when x is null, so it needs Option and therefore the D4 analysis. Those stay gaps."
+      }
+    ]
+  },
+  "locking": {
+    "note": "C# `lock(x) { ... }` becomes a Mutex guard, and the locked field's type becomes Mutex<T>. Both are DERIVED: a field that appears as a lock target is one the source says needs mutual exclusion, so the type follows from the corpus rather than from a judgement.",
+    "guard": "let _sync = {target}.lock().unwrap();",
+    "field_type": "std::sync::Mutex<{inner}>",
+    "warning": "measure",
+    "marker_moved": "The marker text used to live here as a literal, and was the ONLY thing in the emitter resembling a severity. It now comes from severity.warnings.measure — same tag, same text, same emitted bytes — so that it is one instance of a general mechanism instead of a special case that three other deviations could not reuse.",
+    "no_guarantee": "NO EQUIVALENCE IS CLAIMED FOR THREADING OR TIMING, and the translation must not pretend otherwise. Translated code runs at different rates, so lock hold times, contention and interleaving all differ. No transpiler can get this exactly right. Our oracle cannot see it either: trace replay feeds recorded register accesses through a single-threaded replay, so a threading difference is invisible to it BY CONSTRUCTION -- which means 'the oracle passes' is not evidence here. Each site is marked so it can be found and MEASURED rather than assumed.",
+    "rejected_alternative": "PLAN.md D3 proposes deleting locks entirely on the grounds that a single-core guest has nothing to parallelise. That is an argument about THROUGHPUT, not fidelity, and PLAN.md itself records D3 as the one place the plan knowingly departs from faithful and as requiring re-validation that has not happened. Deleting 842 synchronisation points on an unvalidated performance argument, in a place the oracle is blind, is not a translation. Preserving the structure costs nothing under single-threaded execution -- an uncontended Mutex is close to free -- and keeps the decision reversible.",
+    "sentinel": {
+      "note": "`private readonly object sync = new object();` is the C# lock-sentinel idiom -- a field that exists ONLY to be locked on and carries no data. Rust spells that Mutex<()>. Recognised by being an `object`-typed field that appears as a lock target, so it is derived, not guessed: an `object` field that is never locked on is something else entirely and still reports as unmapped.",
+      "type": "std::sync::Mutex<()>"
+    }
+  },
+  "format_strings": {
+    "note": "C# composite formatting is NOT Rust format syntax. `{0:X}` is positional-plus-spec; Rust wants `{:X}`. Worse, C# `{1:X8}` means hex padded to 8 -- Rust spells that `{:08X}`, and passing the C# form through is a compile error (`invalid format string: expected }, found 8`), not a wrong string.",
+    "strip_index": true,
+    "specs": {
+      "X": "X",
+      "x": "x",
+      "D": "",
+      "G": "",
+      "F": ""
+    },
+    "padded_hex": "0{width}{spec}"
+  },
+  "mutable_statics": {
+    "note": "A C# static field is one value per closed type, not one value per peripheral instance. Const-valued fields remain constants and static readonly fields are initialization-only storage. A non-readonly, non-const static with a recorded write outside .cctor is genuinely mutable process-wide state.",
+    "representation": "OnceLock plus a lock owned by the runtime; putting the value in generated State would duplicate it per instance and is forbidden.",
+    "current_action": "withhold an ordinary method that accesses a genuinely mutable static and emit a named gap",
+    "why_refusal_is_a_rule": "The emitter previously sent a receiver-less FieldReference through the implicit-this form, producing plausible per-instance state. A general semantic guard is faithful refusal: every corpus gets the same classification query, no type or field name is special-cased, and no wrong Rust is published while runtime storage is absent.",
+    "census": "scripts/semantic_differences_census.py"
+  },
+  "linq": {
+    "note": "LINQ operators are STATIC extension methods -- `Enumerable.Select(source, f)` -- so argument 0 is the receiver and there is no receiver child at all. The generic invocation rule saw none, emitted the self-call form, and produced `st.select(...)`: a LINQ call read as a state field. Identical failure to `this.Log`, which is also a static extension.",
+    "symbol_contains": "System.Linq.Enumerable.",
+    "receiver_arg": 0,
+    "arity_note": "Keyed by `Name/argc`, where argc COUNTS THE RECEIVER -- so `Select/2` is `Select(source, selector)` and `Select/3` is the indexed overload `Select(source, (item, index) => ...)`. Keying on the name alone was an over-match with no negative to catch it: every overload of a name took the first overload's template. It emitted `.map(|x, i| ..)` for the five indexed `Select` sites in the cut, which is a two-parameter closure passed to a one-parameter method, and it emitted `.min()` for a `Min` with a KEY SELECTOR, silently discarding the selector and comparing the elements instead -- the same defect as OrderBy, in a rule nobody had flagged. An unlisted overload is now a reported gap. This also deletes `no_predicate`: `Any/1` and `Any/2` are two entries in one table rather than a table and an exception to it.",
+    "members": {
+      "Select/2": "{recv}.iter().map({args})",
+      "Where/2": "{recv}.iter().filter({args})",
+      "Any/1": "{recv}.iter().next().is_some()",
+      "Any/2": "{recv}.iter().any({args})",
+      "All/2": "{recv}.iter().all({args})",
+      "Count/1": "{recv}.iter().count()",
+      "First/1": "csharp_rt::first({recv}.iter())",
+      "FirstOrDefault/1": "{recv}.iter().next()",
+      "Take/2": "{recv}.iter().take({args} as usize)",
+      "Skip/2": "{recv}.iter().skip({args} as usize)",
+      "ToArray/1": "{recv}.iter().cloned().collect::<Vec<_>>()",
+      "ToList/1": "{recv}.iter().cloned().collect::<Vec<_>>()",
+      "OrderBy/2": "csharp_rt::order_by({recv}.iter(), {args})",
+      "OrderByDescending/2": "csharp_rt::order_by_descending({recv}.iter(), {args})",
+      "Sum/1": "{recv}.iter().sum()",
+      "Max/1": "{recv}.iter().max().unwrap()",
+      "Min/1": "{recv}.iter().min().unwrap()"
+    },
+    "lambda_arity": {
+      "note": "How many parameters the CLOSURE in each template takes. Argument count alone does not separate LINQ's indexed overloads: `Select(source, x => ..)` and `Select(source, (x, i) => ..)` are both two-argument calls, and both keyed `Select/2`, so the arity key catches `Min(source, keySelector)` and misses this one. The difference is in the DELEGATE, so that is what is checked -- an argument that is a closure must have exactly this many parameters or the rule declines and reports a gap. `.map()` takes a one-parameter closure; C#'s indexed `Select` passes a two-parameter one, and `.map(|x, i| ..)` does not compile. Five such sites in the cut.",
+      "Select/2": 1,
+      "Where/2": 1,
+      "Any/2": 1,
+      "All/2": 1,
+      "OrderBy/2": 1,
+      "OrderByDescending/2": 1,
+      "why_not_a_type_match": "The alternative is to reject on the parameter TYPES in the C# symbol text -- `Func<TSource, int, TResult>`. That guards the overloads that exist today and not the next one, because it names the shape being excluded rather than the shape being required. Counting closure parameters states the requirement the Rust template actually has.",
+      "index_overload_gap": "The indexed overloads are a real gap, not merely unmapped: C# `Select((x, i) => ..)` is `.enumerate().map(|(i, x)| ..)` in Rust, which reassociates the arguments and is a different template rather than a variant of this one. Recorded here so the next person adds it deliberately instead of widening `Select/2` until it matches again."
+    },
+    "runtime_members_why": "`OrderBy` and `First` are the two LINQ operators that are not renames, and both were wrong here before the runtime existed. OrderBy needs to BUFFER the sequence -- a sort is not a lazy operation, so something has to hold it -- and the previous mapping was `{recv}`, the receiver unchanged: a sort that does not sort, which compiles and replays any trace that does not observe ordering. First has an ERROR MODE: C# throws InvalidOperationException where `.next().unwrap()` panics saying `called Option::unwrap() on a None value`, and under D4 those are not the same thing. Everything else in this table stays a template, because everything else IS a rename. See docs/decisions/runtime-is-the-fourth-layer.md.",
+    "unwrap_still_here_why": "`Max/1` and `Min/1` keep `.unwrap()` and are NOT routed to the runtime. Same error mode as First, so the argument applies -- but neither has a single instance in the cut, and a runtime function with no emitting instance is a type with no caller. They are named here so the next person sees a decision rather than an oversight; when one appears, it takes a `csharp_rt::` call and the reason is already written.",
+    "warn": {
+      "note": "Member name -> the severity.warnings identifier its mapping carries. A member absent here is claimed FAITHFUL, which is the point of listing the unfaithful ones by name rather than describing them in prose above. EMPTY as of the runtime migration: `OrderBy` carried the only entry, and it is no longer a warning because it no longer approximates -- `csharp_rt::order_by` performs a stable sort. A warning that outlives the defect it described is worse than none, because the next reader trusts it."
+    },
+    "cloned_note": "ToArray/ToList insert `.cloned()`: iterating a collection yields references, and collecting them into an owned Vec needs the copy. Mined from depyler DEPYLER-1001, which hit the same wall.",
+    "orderby_history": "This entry used to read: *OrderBy is a NO-OP pass-through, and that is a recorded DEVIATION, not a mapping... A pass-through at least chains correctly and is honest about doing nothing.* It was not honest about doing nothing -- it produced a sort that does not sort, in code labelled a translation, and no trace could see it. The stated blocker was real and was the wrong conclusion: the key's type and its Ord bound are exactly what a GENERIC FUNCTION states for you, and `csharp_rt::order_by` states them in one place. Kept as history because the reasoning is the argument for the fourth layer: a template has to solve the type problem at every site, so a template author concludes it cannot be solved.",
+    "chaining_note": "The receiver gets `.iter()` only when it is a COLLECTION. A chained LINQ call already yields an iterator, and `xs.iter().filter(..).iter()` does not compile. Detected by whether the emitted receiver already ends in an iterator-producing call, which is textual but exact for what this emitter produces -- the alternative is tracking expression types, which the corpus does not yet give us for chained generics.",
+    "iterator_producers": [
+      ".iter()",
+      ".map(",
+      ".filter(",
+      ".take(",
+      ".skip(",
+      ".cloned()",
+      ".rev()",
+      "csharp_rt::order_by"
+    ]
+  }
+}
