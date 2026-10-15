@@ -441,6 +441,11 @@ public static class Walker
                 case ISimpleAssignmentOperation sa:
                     Add("ref", sa.IsRef);
                     break;
+                case IRecursivePatternOperation rp:
+                    Add("declared", rp.DeclaredSymbol is null ? null : TargetKey(rp.DeclaredSymbol));
+                    Add("deconstruct", rp.DeconstructSymbol is null ? null : TargetKey(rp.DeconstructSymbol));
+                    Add("matched", rp.MatchedType is null ? null : TargetKey(rp.MatchedType));
+                    break;
             }
 
             // Operator kind for expressions where `Kind` alone is ambiguous.

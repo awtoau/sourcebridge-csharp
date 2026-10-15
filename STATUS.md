@@ -1,6 +1,6 @@
 # renode-rs — scorecard
 
-Generated 2026-10-15T18:54:37+11:00 from `6df3437` by `scripts/reports/scorecard.py`. **Do not edit by hand.**
+Generated 2026-10-15T19:31:42+11:00 from `6df3437` by `scripts/reports/scorecard.py`. **Do not edit by hand.**
 
 Leading with the metrics that detect drift, not the ones that flatter it —
 "files translated" is exactly what looked healthy in `linux-rs` while its rules
@@ -141,12 +141,12 @@ Genuine stop points. A failed gate means stop, not retry.
 | marker | sites in emitted Rust | what differs |
 |---|---:|---|
 | `WARN(condwrite)` | 5 | the source performs this access only under a guard; here it is UNCONDITIONAL. The guard reads state this declaration cannot see. |
-| `WARN(eager)` | 6 | a lazy sequence became an owned collection: it is evaluated EAGERLY, so enumeration side effects and their order differ. |
+| `WARN(eager)` | 8 | a lazy sequence became an owned collection: it is evaluated EAGERLY, so enumeration side effects and their order differ. |
 | `SYNC(measure)` | 0 | C# `lock`. Structure preserved; TIMING IS NOT. |
-| `WARN(multicast)` | 7 | a multicast event collapsed to ONE subscribe: there is no unsubscribe, and a second subscriber replaces the first. |
-| `WARN(narrowed)` | 15 | a value outside the declared set has no variant here: the source keeps the number, this falls back to the default. |
+| `WARN(multicast)` | 8 | a multicast event collapsed to ONE subscribe: there is no unsubscribe, and a second subscriber replaces the first. |
+| `WARN(narrowed)` | 16 | a value outside the declared set has no variant here: the source keeps the number, this falls back to the default. |
 | `WARN(orderby)` | 0 | ordering is a PASS-THROUGH: the key selector is discarded and the sequence keeps its source order. |
-| **total** | **33** | |
+| **total** | **37** | |
 
 A **gap** withholds the member, so it can never read as a translation. A **warning** emitted and is wrong in a stated way — the number is the count of sites carrying the marker, not the count of deviations declared, so a deviation that is declared and never marked reads as zero rather than as done.
 
