@@ -1,6 +1,6 @@
 # renode-rs — scorecard
 
-Generated 2026-10-15T17:32:49+11:00 from `044ad9d` by `scripts/scorecard.py`. **Do not edit by hand.**
+Generated 2026-10-15T18:20:12+11:00 from `6df3437` by `scripts/reports/scorecard.py`. **Do not edit by hand.**
 
 Leading with the metrics that detect drift, not the ones that flatter it —
 "files translated" is exactly what looked healthy in `linux-rs` while its rules
@@ -10,7 +10,7 @@ averaged 1.87 validation instances each.
 
 | metric | value | target | status |
 |---|---:|---:|---|
-| **compile-clean modules (the gate)** | 663 | ratchet, may only grow | PASS |
+| **compile-clean modules (the gate)** | 675 | ratchet, may only grow | PASS |
 | platform floor (peripherals reachable end-to-end) | 48 / 65 | 65 | 74% |
 | modules clean *and* drivable | 298 / 687 | — | 43% |
 | oracle trace replay: peripherals at 0 divergence | 3 / 8 | 8 | partial |
@@ -99,7 +99,7 @@ Genuine stop points. A failed gate means stop, not retry.
 
 | gate | status | evidence |
 |---|---|---|
-| **two-tier compile gate** — modules with 0 rustc errors | 663 (ratchet, may only grow) | [docs/decisions/two-tier-compile-gate.md](docs/decisions/two-tier-compile-gate.md) |
+| **two-tier compile gate** — modules with 0 rustc errors | 675 (ratchet, may only grow) | [docs/decisions/two-tier-compile-gate.md](docs/decisions/two-tier-compile-gate.md) |
 | **the floor that runs** — peripherals reachable end-to-end | 48 / 65 | [docs/decisions/the-floor-that-runs.md](docs/decisions/the-floor-that-runs.md) |
 
 ### Historical (Phase 0/1)
@@ -172,7 +172,7 @@ does not have.
 |---|---|
 | files produced by the converter | 1 (`uart_registers.rs`) |
 | peripherals still hand-written | uart behaviour, gpio layout + behaviour |
-| enforcement | `check_generated.py` is in the pre-commit hook, but the hook is NOT installed here (`python3 scripts/dev.py install-hooks`) |
+| enforcement | `check_generated.py`, pre-commit (hook installed) |
 
 The UART's register layout is now generated and enforced byte-for-byte.
 Deleting the hand-written version removed three edits that had survived
@@ -236,16 +236,19 @@ hybrid host was ~50% from core migration; pinned it is ±2%.
 
 ## Issues
 
-68 open, 14 closed, 82 total. Full list: [github.com/awtoau/csharp2rust/issues](https://github.com/awtoau/csharp2rust/issues).
+40 open, 45 closed, 85 total. Full list: [github.com/awtoau/csharp2rust/issues](https://github.com/awtoau/csharp2rust/issues).
 
 | phase | open | closed |
 |---|---:|---:|
-| unphased | 68 | 14 |
+| unphased | 40 | 45 |
 
 **By label** (an issue may carry more than one; counts are not additive to the total above):
 
 | label | issues |
 |---|---:|
 | `bug` | 3 — [#66](https://github.com/awtoau/csharp2rust/issues/66), [#71](https://github.com/awtoau/csharp2rust/issues/71), [#77](https://github.com/awtoau/csharp2rust/issues/77) |
+| `triage:done` | 20 — [#4](https://github.com/awtoau/csharp2rust/issues/4), [#5](https://github.com/awtoau/csharp2rust/issues/5), [#8](https://github.com/awtoau/csharp2rust/issues/8), [#10](https://github.com/awtoau/csharp2rust/issues/10), [#11](https://github.com/awtoau/csharp2rust/issues/11), [#12](https://github.com/awtoau/csharp2rust/issues/12), [#13](https://github.com/awtoau/csharp2rust/issues/13), [#14](https://github.com/awtoau/csharp2rust/issues/14), [#16](https://github.com/awtoau/csharp2rust/issues/16), [#32](https://github.com/awtoau/csharp2rust/issues/32), [#33](https://github.com/awtoau/csharp2rust/issues/33), [#38](https://github.com/awtoau/csharp2rust/issues/38), +8 more |
+| `triage:still-valid` | 32 — [#3](https://github.com/awtoau/csharp2rust/issues/3), [#6](https://github.com/awtoau/csharp2rust/issues/6), [#7](https://github.com/awtoau/csharp2rust/issues/7), [#9](https://github.com/awtoau/csharp2rust/issues/9), [#20](https://github.com/awtoau/csharp2rust/issues/20), [#21](https://github.com/awtoau/csharp2rust/issues/21), [#22](https://github.com/awtoau/csharp2rust/issues/22), [#23](https://github.com/awtoau/csharp2rust/issues/23), [#24](https://github.com/awtoau/csharp2rust/issues/24), [#25](https://github.com/awtoau/csharp2rust/issues/25), [#26](https://github.com/awtoau/csharp2rust/issues/26), [#27](https://github.com/awtoau/csharp2rust/issues/27), +20 more |
+| `triage:superseded` | 9 — [#15](https://github.com/awtoau/csharp2rust/issues/15), [#17](https://github.com/awtoau/csharp2rust/issues/17), [#18](https://github.com/awtoau/csharp2rust/issues/18), [#19](https://github.com/awtoau/csharp2rust/issues/19), [#29](https://github.com/awtoau/csharp2rust/issues/29), [#34](https://github.com/awtoau/csharp2rust/issues/34), [#35](https://github.com/awtoau/csharp2rust/issues/35), [#37](https://github.com/awtoau/csharp2rust/issues/37), [#53](https://github.com/awtoau/csharp2rust/issues/53) |
 
 
