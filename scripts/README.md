@@ -11,7 +11,8 @@ classifier: `core/` (converter and shared library modules), `validation/`
 `analysis/` (census and other reproducible-research scripts), `oracle/`
 (trace acquisition and replay tooling), `reports/` (generated status output).
 A handful of top-level entry points (`dev.py`, `gates.py`, `regenerate.py`,
-`dispatch_spike.py`, `record_translations.py`, `dump_emitted.py`, `rules.py`)
+`dispatch_spike.py`, `record_translations.py`, `dump_emitted.py`, `rules.py`,
+`sync_renode.py`)
 don't fit one category and stay at `scripts/` directly. `dev.py describe`
 discovers commands from every one of these directories, so a script's kind on
 the CLI and its physical directory can differ (`check_generated.py` lives in
@@ -35,6 +36,11 @@ by kind).
 - `dev.py ci-fast`: full push-tier (`--full`) run with fail-fast enabled.
 - `dev.py ci-determinism`: explicit issue-36 determinism proof run
   (`check_determinism.py` then `check_emit_determinism.py`).
+- `sync_renode.py` (`dev.py sync-renode --tag vX.Y.Z`): creates or verifies a
+  release-pinned Renode worktree in `tmp/`, then ingests and checks a scratch
+  corpus. It never overwrites `rulesdb/patterns.db`; review it with
+  `dev.py diff-corpus --new tmp/patterns-vX.Y.Z.db`. `--activate` changes the
+  local `RENODE_SRC` only after the scratch corpus passes health checks.
 
 ## Validation (`validation/`)
 
