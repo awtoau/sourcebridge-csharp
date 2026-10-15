@@ -462,7 +462,7 @@ def main() -> int:
                            "was a 1.6% rise against 3,072 and passed).",
             "may_only_grow": "min_modules is a floor. Shrinking the set takes "
                              "two edits so it cannot happen quietly.",
-            "record_with": "python3 scripts/compile_check.py --record-clean-set",
+            "record_with": "python3.15t scripts/validation/compile_check.py --record-clean-set",
             "min_modules": len(clean_now),
             "modules": sorted(clean_now),
         }

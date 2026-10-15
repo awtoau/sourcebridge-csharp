@@ -153,15 +153,17 @@ public static class Program
                         + $"{errors.Count} workspace failures");
         foreach (var d in errors.Take(5)) Console.WriteLine($"  ! {Truncate(d.Message, 120)}");
 
-        // Every document in the compilation. The only exclusion is a tree with
-        // no file path -- a generated or in-memory tree, which has no source to
-        // point provenance at.
+        // Every source document in the compilation. A build intermediate under
+        // obj/ is generated from this tree and cannot belong to a stable corpus:
+        // rebuilding the same Renode commit changes its attributes and therefore
+        // the extracted operations.
         //
         // Nothing is filtered by name. The previous file list was hand-typed and
         // silently incomplete; the corpus is now defined by the compilation
         // itself, which is the one description of it that cannot drift.
         var trees = compilation.SyntaxTrees
-            .Where(t => !string.IsNullOrEmpty(t.FilePath))
+            .Where(t => !string.IsNullOrEmpty(t.FilePath)
+                        && !IsBuildIntermediate(renodeSrc, t.FilePath))
             .ToList();
 
         var skipped = compilation.SyntaxTrees.Count() - trees.Count;
@@ -170,7 +172,7 @@ public static class Program
         Console.WriteLine($"corpus    {trees.Count} files, {loc:N0} lines"
                         + (all ? "   [HEALTH CHECK -- scratch database]" : ""));
         if (skipped > 0)
-            Console.WriteLine($"          {skipped} tree(s) skipped: no file path (generated source)");
+            Console.WriteLine($"          {skipped} tree(s) skipped: generated or build-intermediate source");
 
         // Compilation diagnostics tell us whether the semantic model is
         // trustworthy. Ingesting from a compilation with unresolved types would
@@ -211,6 +213,12 @@ public static class Program
         }
         catch { return "unknown"; }
     }
+
+    private static bool IsBuildIntermediate(string root, string filePath) =>
+        Path.GetRelativePath(root, filePath)
+            .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                   StringSplitOptions.RemoveEmptyEntries)
+            .Contains("obj", StringComparer.OrdinalIgnoreCase);
 
     private static string? ArgValue(string[] args, string name)
     {

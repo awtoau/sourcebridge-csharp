@@ -1,6 +1,6 @@
 # renode-rs — scorecard
 
-Generated 2026-10-15T18:20:12+11:00 from `6df3437` by `scripts/reports/scorecard.py`. **Do not edit by hand.**
+Generated 2026-10-15T18:54:37+11:00 from `6df3437` by `scripts/reports/scorecard.py`. **Do not edit by hand.**
 
 Leading with the metrics that detect drift, not the ones that flatter it —
 "files translated" is exactly what looked healthy in `linux-rs` while its rules
@@ -10,7 +10,7 @@ averaged 1.87 validation instances each.
 
 | metric | value | target | status |
 |---|---:|---:|---|
-| **compile-clean modules (the gate)** | 675 | ratchet, may only grow | PASS |
+| **compile-clean modules (the gate)** | 695 | ratchet, may only grow | PASS |
 | platform floor (peripherals reachable end-to-end) | 48 / 65 | 65 | 74% |
 | modules clean *and* drivable | 298 / 687 | — | 43% |
 | oracle trace replay: peripherals at 0 divergence | 3 / 8 | 8 | partial |
@@ -29,9 +29,9 @@ averaged 1.87 validation instances each.
 
 | | count |
 |---|---:|
-| methods ingested | 26,159 |
-| operation nodes | 1,590,724 |
-| types ingested | 4,832 |
+| methods ingested | 26,955 |
+| operation nodes | 1,661,567 |
+| types ingested | 4,962 |
 
 **Emission floor** (`docs/status/floor.json`, see [docs/decisions/the-floor-that-runs.md](docs/decisions/the-floor-that-runs.md)):
 
@@ -99,7 +99,7 @@ Genuine stop points. A failed gate means stop, not retry.
 
 | gate | status | evidence |
 |---|---|---|
-| **two-tier compile gate** — modules with 0 rustc errors | 675 (ratchet, may only grow) | [docs/decisions/two-tier-compile-gate.md](docs/decisions/two-tier-compile-gate.md) |
+| **two-tier compile gate** — modules with 0 rustc errors | 695 (ratchet, may only grow) | [docs/decisions/two-tier-compile-gate.md](docs/decisions/two-tier-compile-gate.md) |
 | **the floor that runs** — peripherals reachable end-to-end | 48 / 65 | [docs/decisions/the-floor-that-runs.md](docs/decisions/the-floor-that-runs.md) |
 
 ### Historical (Phase 0/1)
@@ -221,13 +221,13 @@ hybrid host was ~50% from core migration; pinned it is ±2%.
 
 | | |
 |---|---|
-| Renode commit | `dc52b24c118a` |
-| firmware ELF | `awto-htc.elf` `4eccbaee25d7` |
+| Renode commit | `ab721d88e135` |
+| firmware ELF | `awto-htc.elf` `278f5c57fb65` |
 | markers in order | 8 / 8 |
-| init steps | 19 (2 expected failures) |
-| `system_boot OK` | 291 ms simulated |
-| first output | host 26.57s / virt 7.16s (LSI-measurement cost) |
-| real-time ratio | 0.16× |
+| init steps | 17 (0 expected failures) |
+| `system_boot OK` | 302 ms simulated |
+| first output | host 2.18s / virt 0.48s (LSI-measurement cost) |
+| real-time ratio | 0.567× |
 
 > The real-time ratio is **contaminated**: `SystemBus::TryGetTag` is 12.78% of
 > profile, driven by 16,827 accesses per boot to unmapped ADC_CCR
@@ -236,11 +236,11 @@ hybrid host was ~50% from core migration; pinned it is ±2%.
 
 ## Issues
 
-40 open, 45 closed, 85 total. Full list: [github.com/awtoau/csharp2rust/issues](https://github.com/awtoau/csharp2rust/issues).
+38 open, 47 closed, 85 total. Full list: [github.com/awtoau/csharp2rust/issues](https://github.com/awtoau/csharp2rust/issues).
 
 | phase | open | closed |
 |---|---:|---:|
-| unphased | 40 | 45 |
+| unphased | 38 | 47 |
 
 **By label** (an issue may carry more than one; counts are not additive to the total above):
 

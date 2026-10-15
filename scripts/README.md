@@ -41,6 +41,9 @@ by kind).
   corpus. It never overwrites `rulesdb/patterns.db`; review it with
   `dev.py diff-corpus --new tmp/patterns-vX.Y.Z.db`. `--activate` changes the
   local `RENODE_SRC` only after the scratch corpus passes health checks.
+- `promote_corpus.py` (`dev.py promote-corpus --from-db tmp/patterns-vX.Y.Z.db`):
+  atomically replaces the canonical corpus only after verifying the supplied
+  scratch database is a populated whole-tree ingest.
 
 ## Validation (`validation/`)
 

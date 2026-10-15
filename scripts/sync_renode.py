@@ -58,7 +58,7 @@ def tfm_from_build_script(worktree: Path) -> str:
     return match.group(1)
 
 
-def verify_corpus(db: Path) -> None:
+def verify_corpus(db: Path, log_file: Path) -> None:
     uri = f"file:{db}?mode=ro"
     with sqlite3.connect(uri, uri=True) as connection:
         run_row = connection.execute(
@@ -66,14 +66,13 @@ def verify_corpus(db: Path) -> None:
         ).fetchone()
         file_count = connection.execute("SELECT COUNT(*) FROM file").fetchone()[0]
         type_count = connection.execute("SELECT COUNT(*) FROM type").fetchone()[0]
-        system_count = connection.execute(
-            "SELECT COUNT(*) FROM type WHERE key LIKE 'System.%' OR name = 'Object'"
-        ).fetchone()[0]
+    metadata_matches = re.findall(r"(\d+) metadata refs", log_file.read_text(encoding="utf-8"))
+    metadata_references = int(metadata_matches[-1]) if metadata_matches else 0
     if run_row is None or run_row[0] != "tree":
         raise RuntimeError("scratch database has no canonical whole-tree corpus run")
-    if file_count == 0 or type_count == 0 or system_count == 0:
+    if file_count == 0 or type_count == 0 or metadata_references == 0:
         raise RuntimeError(
-            "scratch database is unusable: expected files, types, and resolved System metadata"
+            "scratch database is unusable: expected files, types, and resolved metadata references"
         )
 
 
@@ -163,7 +162,7 @@ def main() -> int:
                          "--", "--db", str(temporary_db)],
                 cwd=root, env={**os.environ, "RENODE_SRC": str(worktree)},
                 stdout=output, stderr=subprocess.STDOUT)
-        verify_corpus(temporary_db)
+        verify_corpus(temporary_db, logs / "sync_renode.log")
         shutil.move(temporary_db, db)
     except (OSError, RuntimeError, sqlite3.Error, subprocess.CalledProcessError) as error:
         logger.error("sync failed: %s", error)

@@ -42,19 +42,10 @@ MARKERS = [
     ("boot_context", r"\[BOOT\] system_boot context build=PDM wire=htc"),
 ]
 
-# Init steps that FAIL in the reference boot. These are part of the reference:
-# the Rust port must reproduce them, and a port that "fixes" one has diverged
-# and must record it as a declared deviation rather than quietly passing.
-#
-#   flash_init      -- NOT a defect. gen_images.py blanks flash to 0xFF every
-#                      run, so the emulated EEPROM correctly reports "flash is
-#                      corrupt or is new - applying factory defaults" and the
-#                      step reports FAIL because no stored settings loaded.
-#                      This is the right answer for a fresh device, and starting
-#                      from a known-blank device every run is deliberate.
-#   ism330dhcx_init -- no IMU model exists. IMU data quality is bench territory;
-#                      only identity/config registers were ever worth stubbing.
-EXPECTED_FAILURES = {"flash_init", "ism330dhcx_init"}
+# The v1.17.0 reference has no expected failed boot steps. The target STM32F427
+# platform now supplies the flash and IMU models that made the earlier reference
+# fail at initialization.
+EXPECTED_FAILURES: set[str] = set()
 
 BOOT_STEP_RE = re.compile(r"\[BOOT\] (\w+) (OK|FAIL) \+(\d+) ms @ (\d+) ms")
 
@@ -217,13 +208,6 @@ def main() -> int:
     }
     (outdir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
 
-    # Also write a committed summary. tmp/baseline/ is gitignored (large logs),
-    # but the scorecard and CI need these numbers without the logs, and tracking
-    # them makes reference drift visible in the diff.
-    status_dir = root / "docs" / "status"
-    status_dir.mkdir(parents=True, exist_ok=True)
-    (status_dir / "baseline.json").write_text(json.dumps(manifest, indent=2) + "\n")
-
     log.info("wall %.1fs for %.1fs simulated -> %.2fx real time",
              wall, args.run_for, manifest["realtime_ratio"] or 0)
     for name, _ in MARKERS:
@@ -256,6 +240,12 @@ def main() -> int:
         ok = False
     if not ok:
         return 1
+    # Also write a committed summary only after this run passes. tmp/baseline/
+    # retains failed evidence for diagnosis without replacing the reference
+    # consumed by the scorecard and CI.
+    status_dir = root / "docs" / "status"
+    status_dir.mkdir(parents=True, exist_ok=True)
+    (status_dir / "baseline.json").write_text(json.dumps(manifest, indent=2) + "\n")
     log.info("OK: %d markers in order, %d init steps, failures match reference",
              len(MARKERS), len(steps))
     return 0
