@@ -19,8 +19,8 @@
 //!   - Antmicro.Renode.Core.IGPIO: 2 of 8 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Core.IGPIOWithHooks: 0 of 2 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld
 //!   - Antmicro.Renode.Core.IHasPreservableState: 2 of 3 member(s) and 0 of 1 inherited interface(s) blocked -- type_not_in_corpus
-//!   - Antmicro.Renode.Core.IMachine: 49 of 92 member(s) and 0 of 3 inherited interface(s) blocked -- bcl_unmapped, generic_method, interface_withheld, overload, property_without_accessor, type_without_definition
-//!   - Antmicro.Renode.Core.IManagedThread: 0 of 3 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld
+//!   - Antmicro.Renode.Core.IMachine: 49 of 94 member(s) and 0 of 3 inherited interface(s) blocked -- bcl_unmapped, generic_method, interface_withheld, overload, property_without_accessor, type_without_definition
+//!   - Antmicro.Renode.Core.IManagedThread: 2 of 5 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, type_without_definition
 //!   - Antmicro.Renode.Core.IMassConnectable<T>: 0 of 1 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld
 //!   - Antmicro.Renode.Core.INetworkLogSwitch: 0 of 0 member(s) and 1 of 1 inherited interface(s) blocked -- type_argument_without_value_form
 //!   - Antmicro.Renode.Core.INetworkLogWireless: 0 of 0 member(s) and 1 of 1 inherited interface(s) blocked -- type_argument_without_value_form
@@ -36,22 +36,28 @@
 //!   - Antmicro.Renode.Core.Structure.Registers.IRegisterCollection<T>: 0 of 4 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, name_collision
 //!   - Antmicro.Renode.Core.SymbolLookup.SortedIntervals.ISymbolProvider: 2 of 3 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Core.USB.IProvidesDescriptor: 1 of 3 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
-//!   - Antmicro.Renode.Core.USB.IUSBDevice: 1 of 1 member(s) and 0 of 1 inherited interface(s) blocked -- type_without_definition
+//!   - Antmicro.Renode.Core.USB.IUSBConnection: 2 of 3 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, type_not_in_corpus
+//!   - Antmicro.Renode.Core.USB.IUSBDevice: 1 of 2 member(s) and 0 of 1 inherited interface(s) blocked -- interface_withheld
+//!   - Antmicro.Renode.Core.USB.IUSBPipeRead: 1 of 5 member(s) and 0 of 0 inherited interface(s) blocked -- bcl_unmapped
+//!   - Antmicro.Renode.Core.USB.IUSBPipeSetup: 9 of 13 member(s) and 1 of 2 inherited interface(s) blocked -- bcl_unmapped, interface_withheld, type_not_in_corpus, type_without_definition
 //!   - Antmicro.Renode.EventRecording.IRecordEntry: 2 of 2 member(s) and 0 of 0 inherited interface(s) blocked -- bcl_unmapped, type_without_definition
 //!   - Antmicro.Renode.Extensions.Analyzers.Video.Events.IEventSource: 1 of 4 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
+//!   - Antmicro.Renode.Extensions.Utilities.USB.IDescriptor: 3 of 5 member(s) and 0 of 0 inherited interface(s) blocked -- interface_withheld, type_not_in_corpus
 //!   - Antmicro.Renode.HostInterfaces.Network.IHostNetworkInterface: 0 of 0 member(s) and 2 of 4 inherited interface(s) blocked -- interface_withheld, type_not_in_corpus
 //!   - Antmicro.Renode.HostInterfaces.Network.ITapInterface: 0 of 1 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld
 //!   - Antmicro.Renode.Logging.ILogger: 2 of 8 member(s) and 1 of 1 inherited interface(s) blocked -- type_not_in_corpus
 //!   - Antmicro.Renode.Logging.ILoggerBackend: 4 of 7 member(s) and 1 of 1 inherited interface(s) blocked -- type_not_in_corpus, type_without_definition
 //!   - Antmicro.Renode.Network.IBasicNetworkNode<TData, TAddress>: 1 of 3 member(s) and 0 of 1 inherited interface(s) blocked -- type_not_in_corpus
-//!   - Antmicro.Renode.Peripherals.Bus.IBusController: 41 of 70 member(s) and 8 of 10 inherited interface(s) blocked -- bcl_unmapped, generic_method, interface_withheld, overload, type_argument_without_value_form, type_not_in_corpus, type_without_definition
+//!   - Antmicro.Renode.Peripherals.Analog.IFloatingVoltageSource: 0 of 1 member(s) and 1 of 1 inherited interface(s) blocked -- type_argument_without_value_form
+//!   - Antmicro.Renode.Peripherals.Bus.IBusController: 45 of 74 member(s) and 8 of 10 inherited interface(s) blocked -- bcl_unmapped, generic_method, interface_withheld, overload, type_argument_without_value_form, type_not_in_corpus, type_without_definition
 //!   - Antmicro.Renode.Peripherals.Bus.IBusRegistered<T>: 0 of 0 member(s) and 1 of 1 inherited interface(s) blocked -- type_argument_without_value_form
 //!   - Antmicro.Renode.Peripherals.Bus.IGaislerAHB: 1 of 4 member(s) and 0 of 1 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Peripherals.Bus.IGaislerAPB: 1 of 4 member(s) and 0 of 1 inherited interface(s) blocked -- type_without_definition
+//!   - Antmicro.Renode.Peripherals.Bus.IHasBusRegistrationConstraints: 1 of 1 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Peripherals.Bus.SystemBus.IReadOnlyPeripheralCollection: 2 of 3 member(s) and 0 of 0 inherited interface(s) blocked -- interface_withheld, type_without_definition
 //!   - Antmicro.Renode.Peripherals.Bus.Wrappers.PeripheralAccessProfiler.IAccessProfilerWrapper: 2 of 4 member(s) and 0 of 0 inherited interface(s) blocked -- interface_withheld, type_without_definition
 //!   - Antmicro.Renode.Peripherals.CAN.ICAN: 2 of 2 member(s) and 0 of 2 inherited interface(s) blocked -- type_without_definition
-//!   - Antmicro.Renode.Peripherals.CAN.S32K3XX_FlexCAN.ILegacyRxFifoMatcher: 1 of 1 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
+//!   - Antmicro.Renode.Peripherals.CAN.NXP_FlexCAN.ILegacyRxFifoMatcher: 1 of 1 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Peripherals.CFU.ICFU: 2 of 3 member(s) and 0 of 1 inherited interface(s) blocked -- interface_withheld
 //!   - Antmicro.Renode.Peripherals.CPU.Disassembler.IFlaglessDisassembler: 1 of 2 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Peripherals.CPU.IARMCPUsConnectionsProvider: 3 of 3 member(s) and 0 of 0 inherited interface(s) blocked -- interface_withheld
@@ -70,7 +76,7 @@
 //!   - Antmicro.Renode.Peripherals.CPU.ICPUWithNMI: 0 of 1 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld
 //!   - Antmicro.Renode.Peripherals.CPU.ICPUWithPSCI: 0 of 1 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld
 //!   - Antmicro.Renode.Peripherals.CPU.ICPUWithPostGprAccessHooks: 0 of 2 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld
-//!   - Antmicro.Renode.Peripherals.CPU.ICPUWithRegisters: 3 of 3 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, type_without_definition
+//!   - Antmicro.Renode.Peripherals.CPU.ICPUWithRegisters: 4 of 4 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, type_without_definition
 //!   - Antmicro.Renode.Peripherals.CPU.IControllableCPU: 1 of 2 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, type_without_definition
 //!   - Antmicro.Renode.Peripherals.CPU.ICpuSupportingGdb: 2 of 7 member(s) and 2 of 2 inherited interface(s) blocked -- interface_withheld, type_without_definition
 //!   - Antmicro.Renode.Peripherals.CPU.IInitableCPU: 2 of 2 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, type_not_in_corpus
@@ -105,17 +111,18 @@
 //!   - Antmicro.Renode.Peripherals.Network.IEmulatedNetworkService: 0 of 7 member(s) and 1 of 2 inherited interface(s) blocked -- type_not_in_corpus
 //!   - Antmicro.Renode.Peripherals.Network.IMACInterface: 4 of 4 member(s) and 0 of 1 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Peripherals.Network.SynopsysDWCEthernetQualityOfService.Descriptor.IDescriptorStruct: 1 of 2 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
+//!   - Antmicro.Renode.Peripherals.Network.SynopsysEthernetMAC.INormalTxDescriptor: 2 of 12 member(s) and 0 of 1 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Peripherals.PCI.IPCIPeripheral: 1 of 3 member(s) and 0 of 1 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Peripherals.PCI.IPCIeRouter: 1 of 1 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Peripherals.SENT.ISENTPeripheral: 1 of 3 member(s) and 0 of 1 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Peripherals.SPI.Cadence_xSPICommands.IDMACommand: 1 of 6 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
-//!   - Antmicro.Renode.Peripherals.Sensor.IADC: 6 of 9 member(s) and 1 of 2 inherited interface(s) blocked -- property_without_accessor, type_argument_without_value_form, type_without_definition
+//!   - Antmicro.Renode.Peripherals.Sensor.IADC: 6 of 8 member(s) and 1 of 2 inherited interface(s) blocked -- property_without_accessor, type_argument_without_value_form, type_without_definition
 //!   - Antmicro.Renode.Peripherals.Sensor.IHumiditySensor: 2 of 2 member(s) and 0 of 1 inherited interface(s) blocked -- type_not_in_corpus
 //!   - Antmicro.Renode.Peripherals.Sensor.IIlluminanceSensor: 2 of 2 member(s) and 0 of 1 inherited interface(s) blocked -- type_not_in_corpus
 //!   - Antmicro.Renode.Peripherals.Sensor.IPressureSensor: 2 of 2 member(s) and 0 of 1 inherited interface(s) blocked -- type_not_in_corpus
 //!   - Antmicro.Renode.Peripherals.Sensor.ITemperatureSensor: 2 of 2 member(s) and 0 of 1 inherited interface(s) blocked -- type_not_in_corpus
 //!   - Antmicro.Renode.Peripherals.Timers.EFR32_RTCCCounter.ICCChannel: 4 of 7 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
-//!   - Antmicro.Renode.Peripherals.UART.IDelayableUART: 1 of 1 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, type_without_definition
+//!   - Antmicro.Renode.Peripherals.UART.IDelayableUART: 2 of 2 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, type_without_definition
 //!   - Antmicro.Renode.Peripherals.UART.ILINController: 0 of 1 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld
 //!   - Antmicro.Renode.Peripherals.UART.ILINDevice: 0 of 1 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld
 //!   - Antmicro.Renode.Peripherals.UART.IUART: 0 of 0 member(s) and 1 of 1 inherited interface(s) blocked -- interface_withheld, name_collision
@@ -132,7 +139,7 @@
 //!   - Antmicro.Renode.Peripherals.Wireless.ISlipRadio: 0 of 0 member(s) and 1 of 3 inherited interface(s) blocked -- type_not_in_corpus
 //!   - Antmicro.Renode.Time.IClockSource: 8 of 10 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
 //!   - Antmicro.Renode.Time.ITimeSink: 2 of 2 member(s) and 0 of 0 inherited interface(s) blocked -- type_without_definition
-//!   - Antmicro.Renode.Time.ITimeSource: 5 of 8 member(s) and 0 of 0 inherited interface(s) blocked -- interface_withheld, type_without_definition
+//!   - Antmicro.Renode.Time.ITimeSource: 5 of 9 member(s) and 0 of 0 inherited interface(s) blocked -- interface_withheld, type_without_definition
 //!   - Antmicro.Renode.UI.IConsoleBackendAnalyzerProvider: 1 of 4 member(s) and 0 of 1 inherited interface(s) blocked -- type_not_in_corpus
 //!   - Antmicro.Renode.UI.IHasWidget: 1 of 1 member(s) and 0 of 0 inherited interface(s) blocked -- type_not_in_corpus
 //!   - Antmicro.Renode.UserInterface.IUserInterfaceProvider: 2 of 2 member(s) and 0 of 0 inherited interface(s) blocked -- interface_withheld
@@ -154,8 +161,8 @@
 //!
 //! WARNINGS -- these DID emit, and their semantics DIFFER from
 //! the source. Marked at every site, not only summarised here:
-//!   ! WARN(eager) x5: a lazy sequence became an owned collection: it is evaluated EAGERLY, so enumeration side effects and their order differ.
-//!   ! WARN(multicast) x6: a multicast event collapsed to ONE subscribe: there is no unsubscribe, and a second subscriber replaces the first.
+//!   ! WARN(eager) x7: a lazy sequence became an owned collection: it is evaluated EAGERLY, so enumeration side effects and their order differ.
+//!   ! WARN(multicast) x7: a multicast event collapsed to ONE subscribe: there is no unsubscribe, and a second subscriber replaces the first.
 
 /// C# `Antmicro.Renode.Backends.Display.XInput.IInputHandler`, member for member.
 pub trait IInputHandler {
@@ -298,7 +305,8 @@ pub trait IPeripheralRegister<T> {
     fn dump(&mut self, allow_side_effects: bool) -> csharp_rt::Array2D<String>;
     fn read(&mut self) -> T;
     fn reset(&mut self) -> ();
-    fn shadow_reload(&mut self) -> ();
+    fn shadow_reload_callbacks(&mut self) -> ();
+    fn shadow_reload_value(&mut self) -> ();
     fn write(&mut self, offset: i64, value: T) -> ();
 }
 
@@ -328,6 +336,11 @@ pub trait IRegisterField<T> {
 
 /// C# `Antmicro.Renode.Core.Structure.Registers.IValueRegisterField`, member for member.
 pub trait IValueRegisterField: IRegisterField<u64> {
+}
+
+/// C# `Antmicro.Renode.Core.USB.IUSBPipeWrite`, member for member.
+pub trait IUSBPipeWrite {
+    fn write(&mut self, data: Vec<u8>) -> ();
 }
 
 /// C# `Antmicro.Renode.IEmulationElement`, member for member.
@@ -404,6 +417,10 @@ pub trait II2CPeripheral: IPeripheral {
     fn finish_transmission(&mut self) -> ();
     fn read(&mut self, count: i32) -> Vec<u8>;
     fn write(&mut self, data: Vec<u8>) -> ();
+}
+
+/// C# `Antmicro.Renode.Peripherals.I3C.DesignWare_APB_I3C.ITransferCommand`, member for member.
+pub trait ITransferCommand {
 }
 
 /// C# `Antmicro.Renode.Peripherals.IAbsoluteAddressAware`, member for member.
@@ -558,6 +575,41 @@ pub trait ICMU_EFR32xG2 {
 pub trait INetworkInterface: IAnalyzable {
 }
 
+/// C# `Antmicro.Renode.Peripherals.Network.SynopsysEthernetMAC.ICommonDescriptor`, member for member.
+pub trait ICommonDescriptor {
+    fn buffer1_address(&mut self) -> u32;
+    fn buffer1_size(&mut self) -> i32;
+    fn buffer2_address(&mut self) -> u32;
+    fn buffer2_size(&mut self) -> i32;
+    fn end_of_ring(&mut self) -> bool;
+    fn next_descriptor_address(&mut self) -> u32;
+    fn owned(&mut self) -> bool;
+    fn second_address_chained(&mut self) -> bool;
+    fn set_buffer1_address(&mut self, value: u32) -> ();
+    fn set_buffer1_size(&mut self, value: i32) -> ();
+    fn set_buffer2_address(&mut self, value: u32) -> ();
+    fn set_buffer2_size(&mut self, value: i32) -> ();
+    fn set_end_of_ring(&mut self, value: bool) -> ();
+    fn set_owned(&mut self, value: bool) -> ();
+    fn set_second_address_chained(&mut self, value: bool) -> ();
+}
+
+/// C# `Antmicro.Renode.Peripherals.Network.SynopsysEthernetMAC.INormalRxDescriptor`, member for member.
+pub trait INormalRxDescriptor: ICommonDescriptor {
+    fn descriptor_error(&mut self) -> bool;
+    fn disable_interrupt_on_completion(&mut self) -> bool;
+    fn error_summary(&mut self) -> bool;
+    fn first_descriptor(&mut self) -> bool;
+    fn frame_length(&mut self) -> u32;
+    fn last_descriptor(&mut self) -> bool;
+    fn set_descriptor_error(&mut self, value: bool) -> ();
+    fn set_disable_interrupt_on_completion(&mut self, value: bool) -> ();
+    fn set_error_summary(&mut self, value: bool) -> ();
+    fn set_first_descriptor(&mut self, value: bool) -> ();
+    fn set_frame_length(&mut self, value: u32) -> ();
+    fn set_last_descriptor(&mut self, value: bool) -> ();
+}
+
 /// C# `Antmicro.Renode.Peripherals.PCI.IPCIePeripheral`, member for member.
 pub trait IPCIePeripheral: IPeripheral {
     fn configuration_read_double_word(&mut self, offset: i64) -> u32;
@@ -595,6 +647,20 @@ pub trait IMagneticSensor: ISensor {
 
 /// C# `Antmicro.Renode.Peripherals.Sensor.ISensor`, member for member.
 pub trait ISensor: IPeripheral {
+}
+
+/// C# `Antmicro.Renode.Peripherals.Timers.ArmCorstone_SystemCounter.ICounter`, member for member.
+pub trait ICounter {
+    fn deactivate_compare_point(&mut self, handle: Option<Box<dyn FnMut()>>) -> ();
+    fn register_compare_point(&mut self, handle: Option<Box<dyn FnMut()>>, parent: std::rc::Rc<std::cell::RefCell<dyn IEmulationElement>>, local_name: String) -> ();
+    fn set_compare_point(&mut self, handle: Option<Box<dyn FnMut()>>, compare_value: u64) -> ();
+    // WARN(multicast): a multicast event collapsed to ONE subscribe: there is no unsubscribe, and a second subscriber replaces the first.
+    fn subscribe_value_loaded(&mut self, handler: Option<Box<dyn FnMut(u64)>>);
+    // WARN(multicast): a multicast event collapsed to ONE subscribe: there is no unsubscribe, and a second subscriber replaces the first.
+    fn subscribe_value_overflown(&mut self, handler: Option<Box<dyn FnMut()>>);
+    fn value(&mut self) -> u64;
+    fn value_high(&mut self) -> u32;
+    fn value_low(&mut self) -> u32;
 }
 
 /// C# `Antmicro.Renode.Peripherals.Timers.IRiscVTimeProvider`, member for member.
@@ -659,10 +725,17 @@ pub trait IProgressMonitorHandler {
     fn update(&mut self, id: i32, description: String, progress: Option<i32>) -> ();
 }
 
+/// C# `Antmicro.Renode.Utilities.ITreePrintNode`, member for member.
+pub trait ITreePrintNode {
+    // WARN(eager): a lazy sequence became an owned collection: it is evaluated EAGERLY, so enumeration side effects and their order differ.
+    fn children(&mut self) -> Vec<std::rc::Rc<std::cell::RefCell<dyn ITreePrintNode>>>;
+    fn name(&mut self) -> String;
+    // WARN(eager): a lazy sequence became an owned collection: it is evaluated EAGERLY, so enumeration side effects and their order differ.
+    fn notes(&mut self) -> Vec<String>;
+}
+
 /// C# `Antmicro.Renode.Utilities.RESD.IRESDSampleSource<T>`, member for member.
 pub trait IRESDSampleSource<T>: IPeripheral {
-    // WARN(multicast): a multicast event collapsed to ONE subscribe: there is no unsubscribe, and a second subscriber replaces the first.
-    fn subscribe_new_sample(&mut self, handler: Option<Box<dyn FnMut(T)>>);
     fn sample(&mut self) -> T;
 }
 

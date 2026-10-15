@@ -24,9 +24,9 @@
 //!   - StartConversion: withheld, reaches state this peripheral does not have: st.machine, st.sampling_timer
 //!   - state field `channels`: reference-typed, so the object-graph rule maps it to `Vec<Gc<ADCChannel>>`; blocked: `ADCChannel` has no emitted Rust type yet, so there is nothing to point at
 //!   - state field `currentChannel`: reference-typed, so the object-graph rule maps it to `Gc<ADCChannel>`; blocked: `ADCChannel` has no emitted Rust type yet, so there is nothing to point at
-//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 112 members, the corpus calls 38
+//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 115 members, the corpus calls 39
 //!   - state field `samplingTimer`: reference-typed, so the object-graph rule maps it to `Gc<LimitTimer>`; blocked: `LimitTimer` has no emitted Rust type yet, so there is nothing to point at
-//!   - state field `sysbus`: needs trait `IBusController` (D1 maps the field; the trait is issue #41). IBusController declares 73 members, the corpus calls 66
+//!   - state field `sysbus`: needs trait `IBusController` (D1 maps the field; the trait is issue #41). IBusController declares 78 members, the corpus calls 68
 
 use renode_regs::{Bank, FieldMode, FlagId, ValueId};
 

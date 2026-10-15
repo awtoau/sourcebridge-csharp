@@ -20,7 +20,7 @@
 //!   - BaseGPIOPort.reset: not in the trait -- 1 of 1 implementor(s) cannot supply it (STM32_GPIOPort); their own override is not emitted, and forwarding to the base body instead would dispatch to the wrong method
 //!   - BaseGPIOPort: the whole trait is withheld -- no member survives, so it would be a name with no contract
 //!   - BasicDoubleWordPeripheral.offset_to_string: not in the trait -- 4 of 4 implementor(s) cannot supply it (STM32DMA, STM32F4_EXTI, STM32_ADC, STM32_UART); no implementor emits it
-//!   - BasicDoubleWordPeripheral.reset: not in the trait -- 3 of 4 implementor(s) cannot supply it (STM32DMA, STM32F4_EXTI, STM32_ADC); their own override is not emitted, and forwarding to the base body instead would dispatch to the wrong method
+//!   - BasicDoubleWordPeripheral.reset: not in the trait -- 4 of 4 implementor(s) cannot supply it (STM32DMA, STM32F4_EXTI, STM32_ADC, STM32_UART); their own override is not emitted, and forwarding to the base body instead would dispatch to the wrong method
 
 use renode_regs::Bank;
 use crate::adc_registers;

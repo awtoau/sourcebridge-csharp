@@ -37,8 +37,8 @@
 //!   - UpdateInterrupts: withheld, reaches state this peripheral does not have: st.irq
 //!   - state field `Connections`: needs trait `IGPIO` (D1 maps the field; the trait is issue #41). IGPIO declares 11 members, the corpus calls 5
 //!   - state field `engine`: reference-typed, so the object-graph rule maps it to `Gc<DmaEngine>`; blocked: `DmaEngine` has no emitted Rust type yet, so there is nothing to point at
-//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 112 members, the corpus calls 38
-//!   - state field `sysbus`: needs trait `IBusController` (D1 maps the field; the trait is issue #41). IBusController declares 73 members, the corpus calls 66
+//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 115 members, the corpus calls 39
+//!   - state field `sysbus`: needs trait `IBusController` (D1 maps the field; the trait is issue #41). IBusController declares 78 members, the corpus calls 68
 //!   - stream: StreamConfiguration: callback for bit 0 needs peer method(s) not yet emitted: handle_enable
 //!   - stream: state field `IRQ`: needs trait `IGPIO` (D1 maps the field; the trait is issue #41). IGPIO declares 11 members, the corpus calls 5
 //!   - stream: state field `parent`: reference-typed, so the object-graph rule maps it to `Gc<STM32DMA>`; blocked: `STM32DMA` has no emitted Rust type yet, so there is nothing to point at

@@ -7,19 +7,24 @@
 //! Source: STM32_GPIOPort.CreateRegisters
 //!
 //! GAPS the converter reports rather than guessing:
+//!   - AlternateFunctionHigh: WithValueFields bit 0: `changeCallback` is bound in the C# and no rule consumes it -- that behaviour is missing
 //!   - AlternateFunctionHigh: callback for bit 0 reaches state this peripheral does not have: st.alternate_function_outputs
+//!   - AlternateFunctionLow: WithValueFields bit 0: `changeCallback` is bound in the C# and no rule consumes it -- that behaviour is missing
 //!   - AlternateFunctionLow: callback for bit 0 reaches state this peripheral does not have: st.alternate_function_outputs
 //!   - BaseGPIOPort..ctor `BaseGPIOPort(IMachine, int)`: a base constructor, run by C# before the derived body and NOT inlined here -- inlining it means substituting the derived type's arguments for its parameters, so every field only this one assigns stays at Default
 //!   - BitReset: callback for bit 0 needs peer method(s) not yet emitted: write_state
 //!   - BitSet: callback for bit 0 needs peer method(s) not yet emitted: write_state
 //!   - BitSet: callback for bit 16 needs peer method(s) not yet emitted: write_state
 //!   - ChangeMode: withheld, reaches state this peripheral does not have: st.alternate_function_outputs
+//!   - ConfigurationLock: callback for bit None: withheld, cannot emit stmt:Branch
 //!   - GetLocalReceiver: withheld, return type `Antmicro.Renode.Core.IGPIOReceiver` has no Rust mapping
+//!   - Mode: WithEnumFields bit 0: `changeCallback` is bound in the C# and no rule consumes it -- that behaviour is missing
 //!   - Mode: callback for bit 0 indexes a collection nothing sizes, so it would PANIC on the first read: st.mode[..]
-//!   - Mode: callback for bit 0 needs peer method(s) not yet emitted: change_mode
 //!   - OnGPIO: withheld, reaches state this peripheral does not have: st.irq
 //!   - OutputData: callback for bit 0 needs peer method(s) not yet emitted: write_state
+//!   - OutputSpeed: WithEnumFields bit 0: `changeCallback` is bound in the C# and no rule consumes it -- that behaviour is missing
 //!   - OutputSpeed: callback for bit 0 indexes a collection nothing sizes, so it would PANIC on the first read: st.output_speed[..]
+//!   - PullUpPullDown: WithEnumFields bit 0: `changeCallback` is bound in the C# and no rule consumes it -- that behaviour is missing
 //!   - PullUpPullDown: callback for bit 0 indexes a collection nothing sizes, so it would PANIC on the first read: st.pull_up_pull_down[..]
 //!   - Register: parameter `peripheral` has no Rust mapping for `Antmicro.Renode.Core.IGPIOSender`
 //!   - Reset: withheld, cannot emit expr:StaticInvocation:BitHelper.GetValue
@@ -45,13 +50,13 @@
 //!   - state field `Connections`: needs trait `IGPIO` (D1 maps the field; the trait is issue #41). IGPIO declares 11 members, the corpus calls 5
 //!   - state field `alternateFunctionOutputs`: reference-typed, so the object-graph rule maps it to `Vec<Gc<GPIOAlternateFunction>>`; blocked: `GPIOAlternateFunction` has no emitted Rust type yet, so there is nothing to point at
 //!   - state field `invertedAFPins`: no Rust mapping for `System.Collections.Generic.HashSet<Antmicro.Renode.Peripherals.GPIOPort.STM32_GPIOPort.InvertedAFPin>`
-//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 112 members, the corpus calls 38
+//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 115 members, the corpus calls 39
 //!   - static call `BitHelper.GetValue` has no Rust mapping
 //!   - write_state: withheld, calls withheld method(s): write_pin
 //!
 //! WARNINGS -- these DID emit, and their semantics DIFFER from
 //! the source. Marked at every site, not only summarised here:
-//!   ! WARN(narrowed) x3: a value outside the declared set has no variant here: the source keeps the number, this falls back to the default.
+//!   ! WARN(narrowed) x4: a value outside the declared set has no variant here: the source keeps the number, this falls back to the default.
 
 use renode_regs::{Bank, FieldMode, FlagId, ValueId};
 
@@ -73,6 +78,31 @@ pub mod reg {
 /// Field handles bound by `out` parameters in the C#.
 #[derive(Default)]
 pub struct Fields {
+}
+
+/// C# `enum LockSequence`, discriminants as declared.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(u64)]
+pub enum LockSequence {
+    #[default] Idle = 0,
+    Step0 = 1,
+    Step1 = 2,
+    Step2 = 3,
+    Armed = 4,
+}
+
+// WARN(narrowed): a value outside the declared set has no variant here: the source keeps the number, this falls back to the default.
+impl LockSequence {
+    pub fn from_u64(v: u64) -> Self {
+        match v {
+            0 => Self::Idle,
+            1 => Self::Step0,
+            2 => Self::Step1,
+            3 => Self::Step2,
+            4 => Self::Armed,
+            _ => Self::default(),
+        }
+    }
 }
 
 /// C# `enum Mode`, discriminants as declared.
@@ -153,6 +183,8 @@ pub struct State {
     pub f: Fields,
     pub number_of_connections: i32,
     pub state: Vec<bool>,
+    pub lock_sequence_state: LockSequence,
+    pub locked_pins: u64,
     pub mode: Vec<Mode>,
     pub mode_reset_value: u32,
     pub number_of_a_fs: u32,
@@ -195,6 +227,14 @@ pub fn check_pin_number(bank: &Bank<State>, st: &mut State, number: i32) -> bool
     return true;
 }
 
+pub fn guard_pin_action(bank: &Bank<State>, st: &mut State, number: i32, name: String, action: Option<Box<dyn FnMut()>>) -> () {
+    if ((st.lock_sequence_state == LockSequence::Armed as u64) && bithelper::is_bit_set(st.locked_pins, (number as u8))) {
+        log::warn!("Ignoring attempt to change {} configuration of the locked pin #{}", name, number);
+        return;
+    }
+    if let Some(f) = action.as_mut() { f() };
+}
+
 pub fn read_double_word(bank: &Bank<State>, st: &mut State, offset: i64) -> u32 {
     return bank.read(offset as u64, st).unwrap_or(0) as u32;
 }
@@ -212,6 +252,16 @@ fn input_data_0_provider(bank: &Bank<State>, st: &mut State, _idx: usize, _curre
 
 fn output_data_0_provider(bank: &Bank<State>, st: &mut State, _idx: usize, _current: u64) -> u64 {
     return (bithelper::get_value_from_bits_array(st.state) as u64);
+}
+
+fn configuration_lock_0_provider(bank: &Bank<State>, st: &mut State, _idx: usize, _current: u64) -> u64 {
+    if (st.lock_sequence_state == LockSequence::Step2 as u64) {
+        st.lock_sequence_state = LockSequence::Armed as u64;
+    }
+    if (st.lock_sequence_state != LockSequence::Armed as u64) {
+        st.lock_sequence_state = LockSequence::Idle as u64;
+    }
+    return st.locked_pins;
 }
 
 /// C# `DefineRegisters()`, field for field.
@@ -264,24 +314,10 @@ pub fn define_registers(bank: &mut Bank<State>, f: &mut Fields) {
         .done();
 
     bank.define(reg::CONFIGURATION_LOCK, 0)
-        .with_tagged_flag(0)
-        .with_tagged_flag(1)
-        .with_tagged_flag(2)
-        .with_tagged_flag(3)
-        .with_tagged_flag(4)
-        .with_tagged_flag(5)
-        .with_tagged_flag(6)
-        .with_tagged_flag(7)
-        .with_tagged_flag(8)
-        .with_tagged_flag(9)
-        .with_tagged_flag(10)
-        .with_tagged_flag(11)
-        .with_tagged_flag(12)
-        .with_tagged_flag(13)
-        .with_tagged_flag(14)
-        .with_tagged_flag(15)
-        .with_tagged_flag(16)
+        .with_value_cb(0, 16, FieldMode::READ_WRITE, Some(configuration_lock_0_provider), None)
+        .with_flag_anon(16, FieldMode::READ_WRITE)
         .with_reserved(17, 15)
+        .with_write_callback(None)
         .done();
 
     bank.define(reg::ALTERNATE_FUNCTION_LOW, 0)

@@ -8,18 +8,34 @@
 //!
 //! GAPS the converter reports rather than guessing:
 //!   - BasicDoubleWordPeripheral..ctor `BasicDoubleWordPeripheral(IMachine)`: a base constructor, run by C# before the derived body and NOT inlined here -- inlining it means substituting the derived type's arguments for its parameters, so every field only this one assigns stays at Default
+//!   - BaudRate: WithChangeCallback: `changeCallback` is bound in the C# and no rule consumes it -- that behaviour is missing
+//!   - BaudRate: WithChangeCallback: register-level read/change callback: the bank has no hook to attach it to
+//!   - ConfigureReceiverThread: withheld, cannot emit expr:DeclarationExpression, expr:StaticInvocation:IDelayableUARTExtensions.GetActualTransmissionDuration
+//!   - Control1: WithFlag bit 12: `changeCallback` is bound in the C# and no rule consumes it -- that behaviour is missing
+//!   - Control1: callback for bit None needs peer method(s) not yet emitted: update_baudrate
 //!   - Control1: conditional access `?.` needs nullability analysis
 //!   - Data: conditional access `?.` needs nullability analysis
 //!   - OffsetToString: withheld, reaches state this peripheral does not have: st.mapper
+//!   - ReceiveChar: withheld, cannot emit expr:StaticInvocation:IDelayableUARTExtensions.GetActualTransmissionDuration
+//!   - Reset: withheld, reaches state this peripheral does not have: st.receiver_thread
 //!   - STM32_UART..ctor `STM32_UART(IMachine, uint)`: `new` is emitted but nothing calls it. What arguments a given instance is constructed with is configuration of the system being modelled, not a fact in the corpus, so the converter cannot supply them
 //!   - STM32_UART..ctor `STM32_UART(IMachine, uint)`: parameter(s) `frequency` have a C# default value that the corpus does not record -- `parameter.has_default` is stored, the value is not -- so `Self::default()` cannot use them and leaves those fields at 0/false
 //!   - STM32_UART..ctor `STM32_UART(IMachine, uint)`: statement 2 withheld -- not an assignment to the type's own storage, but Invocation; an initialiser can only assign the struct it is building
-//!   - WriteChar: withheld, cannot emit expr:StaticInvocation:TimeInterval.FromMicroseconds
+//!   - STM32_UART..ctor `STM32_UART(IMachine, uint)`: statement 3 withheld -- not an assignment to the type's own storage, but Invocation; an initialiser can only assign the struct it is building
+//!   - UpdateDelay: withheld, cannot emit expr:StaticInvocation:IDelayableUARTExtensions.GetActualTransmissionDuration
+//!   - WriteChar: withheld, reaches state this peripheral does not have: st.receiver_thread
+//!   - auto_update_delay: withheld, calls withheld method(s): update_delay
+//!   - delay_multiplier: withheld, calls withheld method(s): auto_update_delay, update_delay
+//!   - get_CharacterLength: withheld, reaches state this peripheral does not have: st.none
 //!   - get_ParityBit: withheld, return type `Antmicro.Renode.Peripherals.UART.Parity` has no Rust mapping
 //!   - get_StopBits: withheld, return type `Antmicro.Renode.Peripherals.UART.Bits` has no Rust mapping
-//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 112 members, the corpus calls 38
-//!   - state field `sysbus`: needs trait `IBusController` (D1 maps the field; the trait is issue #41). IBusController declares 73 members, the corpus calls 66
-//!   - static call `TimeInterval.FromMicroseconds` has no Rust mapping
+//!   - state field `CharacterReceptionDelay`: no Rust mapping for `Antmicro.Renode.Time.TimeInterval`
+//!   - state field `CharacterTransmissionDelay`: no Rust mapping for `Antmicro.Renode.Time.TimeInterval`
+//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 115 members, the corpus calls 39
+//!   - state field `receiverThread`: needs trait `IManagedThread` (D1 maps the field; the trait is issue #41). IManagedThread declares 7 members, the corpus calls 1
+//!   - state field `sysbus`: needs trait `IBusController` (D1 maps the field; the trait is issue #41). IBusController declares 78 members, the corpus calls 68
+//!   - static call `IDelayableUARTExtensions.GetActualTransmissionDuration` has no Rust mapping
+//!   - update_baudrate: withheld, calls withheld method(s): auto_update_delay, configure_receiver_thread, update_delay
 //!
 //! SOURCE DEFECTS -- the C# is wrong here and this reproduces
 //! the defect FAITHFULLY, which is what the oracle requires.
@@ -62,6 +78,7 @@ pub struct Fields {
     pub transmit_data_register_empty_interrupt_enabled: FlagId,
     pub parity_selection: ValueId,
     pub parity_control_enabled: FlagId,
+    pub word_length0: FlagId,
     pub usart_enabled: FlagId,
     pub oversampling_mode: ValueId,
     pub stop_bits: ValueId,
@@ -139,8 +156,12 @@ pub struct State {
     pub char_received: Option<Box<dyn FnMut(u8)>>,
     pub dma_request: bool,
     pub irq: bool,
+    pub auto_update_delay: bool,
+    pub baudrate: u32,
+    pub delay_multiplier: f64,
     pub frequency: u32,
     pub idle_line_detected_cancellation_token_src: Option<std::rc::Rc<std::cell::Cell<bool>>>,
+    pub intermediate_receive_queue: std::sync::Mutex<std::collections::VecDeque<u8>>,
     pub receive_fifo: std::collections::VecDeque<u8>,
 }
 
@@ -164,9 +185,7 @@ pub fn basic_double_word_peripheral_reset(bank: &Bank<State>, st: &mut State) ->
 }
 
 pub fn baud_rate(bank: &Bank<State>, st: &mut State) -> u32 {
-    let mut fraction = if (bank.value(st.f.oversampling_mode) == OversamplingMode::By16 as u64) { bank.value(st.f.divider_fraction) } else { (bank.value(st.f.divider_fraction) & 7) };
-    let mut divisor = ((csharp_rt::unchecked_mul(8, csharp_rt::unchecked_sub(2, bank.value(st.f.oversampling_mode))) as f64) * ((bank.value(st.f.divider_mantissa) as f64) + ((fraction as f64) / 16.0)));
-    return if (divisor == (0 as f64)) { 0 } else { (((st.frequency as f64) / divisor) as u32) };
+    return st.baudrate;
 }
 
 pub fn read_double_word(bank: &Bank<State>, st: &mut State, offset: i64) -> u32 {
@@ -178,15 +197,6 @@ pub fn report_idle_line_detected(bank: &Bank<State>, st: &mut State, ct: std::rc
         bank.set_flag(st.f.idle_line_detected, true);
         update(bank, st);
     }
-}
-
-pub fn reset(bank: &Bank<State>, st: &mut State) -> () {
-    basic_double_word_peripheral_reset(bank, st);
-    if let Some(__v) = st.idle_line_detected_cancellation_token_src.as_ref() {
-        __v.set(true);
-    }
-    st.receive_fifo.clear();
-    st.irq = false;
 }
 
 pub fn update(bank: &Bank<State>, st: &mut State) -> () {
@@ -235,14 +245,6 @@ fn data_0_writer(bank: &Bank<State>, st: &mut State, _idx: usize, _old: u64, val
     return;
 }
 
-fn control1_writer(bank: &Bank<State>, st: &mut State, _old: u64, __: u64) -> () {
-    if (!bank.flag(st.f.receiver_enabled) || !bank.flag(st.f.usart_enabled)) {
-        /* GAP: `?.` needs nullability analysis (D4) */;
-    }
-    update(bank, st);
-    return;
-}
-
 /// C# `DefineRegisters()`, field for field.
 pub fn define_registers(bank: &mut Bank<State>, f: &mut Fields) {
     // SRCBUG(uart_sr_ore_never_set): C# defect: USART_SR.ORE (bit 3) always reads 0 -- the C# assumes no receive overruns.
@@ -284,12 +286,12 @@ pub fn define_registers(bank: &mut Bank<State>, f: &mut Fields) {
         .with_value(9, 1, &mut f.parity_selection, FieldMode::READ_WRITE)
         .with_flag(10, &mut f.parity_control_enabled, FieldMode::READ_WRITE)
         .with_tagged_flag(11)
-        .with_tagged_flag(12)
+        .with_flag(12, &mut f.word_length0, FieldMode::READ_WRITE)
         .with_flag(13, &mut f.usart_enabled, FieldMode::READ_WRITE)
         .with_reserved(14, 1)
         .with_value(15, 1, &mut f.oversampling_mode, FieldMode::READ_WRITE)
         .with_reserved(16, 16)
-        .with_write_callback(Some(control1_writer))
+        .with_write_callback(None)
         .done();
 
     bank.define(reg::CONTROL2, 0)

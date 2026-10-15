@@ -24,8 +24,8 @@
 //!   - number_of_lines: withheld, calls withheld method(s): connections
 //!   - state field `Connections`: needs trait `IGPIO` (D1 maps the field; the trait is issue #41). IGPIO declares 11 members, the corpus calls 5
 //!   - state field `core`: reference-typed, so the object-graph rule maps it to `Gc<STM32_EXTICore>`; blocked: `STM32_EXTICore` has no emitted Rust type yet, so there is nothing to point at
-//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 112 members, the corpus calls 38
-//!   - state field `sysbus`: needs trait `IBusController` (D1 maps the field; the trait is issue #41). IBusController declares 73 members, the corpus calls 66
+//!   - state field `machine`: needs trait `IMachine` (D1 maps the field; the trait is issue #41). IMachine declares 115 members, the corpus calls 39
+//!   - state field `sysbus`: needs trait `IBusController` (D1 maps the field; the trait is issue #41). IBusController declares 78 members, the corpus calls 68
 
 use renode_regs::{Bank, FieldMode, FlagId, ValueId};
 
