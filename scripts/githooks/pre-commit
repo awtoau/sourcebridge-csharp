@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""Pre-commit hook: enforce repo rules and regenerate the scorecard.
+
+Installed by pointing git at this directory, so the hooks are tracked rather
+than living untracked in .git/hooks:
+
+    git config core.hooksPath scripts/githooks
+
+Two jobs:
+  1. Fail the commit if any tracked file contains a machine-specific absolute
+     path (the repo is public -- see CLAUDE.md).
+  2. Fail the commit if a value derived from an external source of truth has
+     been copied into hand-written source. That is a second source of truth,
+     and it drifts silently.
+  3. Regenerate STATUS.md and stage it, so the scorecard is never stale.
+
+Set RENODE_RS_SKIP_HOOK=1 to bypass (for rebases and mechanical history edits).
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+
+def main() -> int:
+    if os.environ.get("RENODE_RS_SKIP_HOOK"):
+        return 0
+
+    root = Path(
+        subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                       capture_output=True, text=True, check=True).stdout.strip()
+    )
+    py = sys.executable
+
+    # 1. Hard failures. Both guard the same principle from different angles:
+    #    a tracked file must not carry knowledge that belongs somewhere else.
+    # SIX OF THESE RAN NOWHERE until 2026-08-02, while four documents --
+    # CLAUDE.md, STATUS.md, the report and the work protocol -- all stated they
+    # gated every commit. `check_generated` is what turns "BUILD THE CONVERTER,
+    # DO NOT WRITE THE OUTPUT BY HAND" from a rule into an enforced one, and it
+    # was the loudest of the six not to be wired up.
+    #
+    # A documented check that does not run is worse than an undocumented one: it
+    # buys the confidence without doing the work, which is this project's whole
+    # recurring failure. Everything claimed as a gate is now actually a gate.
+    for script, why in (
+        ("scripts/validation/check_paths.py", "absolute path(s) in tracked files"),
+        ("scripts/validation/check_derived.py", "derived value(s) copied into source"),
+        ("scripts/validation/check_layering.py", "corpus knowledge in the generic layer"),
+        ("scripts/core/check_generated.py", "a generated file was hand-edited"),
+        ("scripts/validation/check_ingest.py", "an operation kind lost its extraction"),
+        # Both guards fail SILENTLY if they regress: a trait forwarding to a
+        # base body compiles and passes its trace, and a field-collision guard
+        # that stops firing is indistinguishable from a corpus that stopped
+        # colliding. Neither is visible in a diff.
+        ("scripts/validation/check_inheritance.py",
+         "dispatch stopped resolving strictly, or the collision guard stopped "
+         "being able to fire"),
+        # Cheap (in-memory SQLite, no corpus) and it guards the one claim the
+        # rule DB makes about correctness: that `committed` means a trace
+        # checked the output. The key it replaced counted which files were
+        # ingested, which stopped meaning anything the moment the corpus cut
+        # was removed -- and nothing would have said so.
+        ("scripts/validation/check_commit_tier.py",
+         "`committed` is no longer keyed on the oracle"),
+    ):
+        if subprocess.run([py, script], cwd=root).returncode != 0:
+            print(f"\npre-commit: {why} -- commit refused.", file=sys.stderr)
+            print("Fix it, or set RENODE_RS_SKIP_HOOK=1 if you know why this is wrong.",
+                  file=sys.stderr)
+            return 1
+
+    # 1b. Compile the DECLARED CLEAN SET, per module. Fails when a module that
+    #     compiled with zero errors stops doing so. The regression this catches
+    #     actually happened -- a format-string rule that was never called
+    #     survived two commits, because nothing compiled the 23 modules it
+    #     broke.
+    #
+    #     TWO CHANGES FROM THE VERSION THAT WAS BEING SKIPPED:
+    #
+    #     * It was `--ratchet` over all 569 modules and took ~15 min, so the
+    #       last several commits were made with RENODE_RS_SKIP_HOOK=1 and this
+    #       ran on none of them. A gate slow enough to be bypassed is a gate
+    #       that does not run -- the same outcome as the three checks this
+    #       repo found reporting success while verifying nothing. It is now
+    #       the working-set tier; `scripts/gates.py --full` is the whole
+    #       corpus and gates a push.
+    #     * It ratcheted on the ERROR TOTAL, which had stopped discriminating:
+    #       50 new errors against a baseline of 3,072 is a 1.6% rise and would
+    #       have passed. It is now per-module over the clean set.
+    #
+    #     The fast tier prints what it did NOT check, every run.
+    ratchet = subprocess.run([py, "scripts/validation/compile_check.py",
+                              "--working-set", "--ratchet"],
+                             cwd=root, capture_output=True, text=True)
+    if ratchet.returncode != 0:
+        print(ratchet.stdout[-1200:], file=sys.stderr)
+        print("pre-commit: a module that used to compile clean no longer does",
+              file=sys.stderr)
+        return 1
+
+    # 1c. The interleaving oracle must still FAIL when a lock is deleted.
+    #     Cheap (two cached `cargo test` runs) and it guards the one thing a
+    #     concurrency harness cannot be trusted to prove about itself: that its
+    #     green tick is not unconditional.
+    sync = subprocess.run([py, "scripts/validation/check_sync_harness.py"],
+                          cwd=root, capture_output=True, text=True)
+    if sync.returncode != 0:
+        print(sync.stdout[-1200:], file=sys.stderr)
+        print("pre-commit: the interleaving oracle no longer fails when a lock "
+              "is deleted -- it is not observing locks", file=sys.stderr)
+        return 1
+
+    # 1d. A rule must not acquire a shape its own `negative` forbids. The
+    #     over-match this guards was live for the whole project: 171 anonymous
+    #     `WithValueField`/`WithFlag` sites emitted as TAGS, so `Bank::write`
+    #     skipped them and their writes vanished -- while every trace still
+    #     scored zero divergences, because behaviourally inert wrong code is
+    #     invisible to an oracle. Recording the negative as prose beside the
+    #     rule would not have caught the edit that introduced it.
+    neg = subprocess.run([py, "scripts/validation/check_rule_negatives.py"],
+                         cwd=root, capture_output=True, text=True)
+    if neg.returncode != 0:
+        print(neg.stdout[-1200:], file=sys.stderr)
+        print("pre-commit: a rule matches a shape its own negative forbids",
+              file=sys.stderr)
+        return 1
+
+    # 1e. A rule's OUTPUT must have the shape the rule promised. `negative`
+    #     above is a statement about the input; this is the only check on what
+    #     came out, and it is the one that can refuse a combinator the source
+    #     does not contain -- the defect that reached a translated file,
+    #     survived a 33,000-access trace because it was behaviourally inert,
+    #     and was found by regenerating and diffing rather than by any test.
+    post = subprocess.run([py, "scripts/validation/check_postconditions.py"],
+                          cwd=root, capture_output=True, text=True)
+    if post.returncode != 0:
+        print(post.stdout[-1500:], file=sys.stderr)
+        print("pre-commit: a rule emitted something that is not the shape it "
+              "promised", file=sys.stderr)
+        return 1
+
+    # 1f. ...and the postconditions must still be able to REJECT. A check that
+    #     has never rejected anything reports exactly what a check doing
+    #     nothing reports. This breaks the emitter four ways on purpose and
+    #     fails if any break goes unnoticed.
+    prove = subprocess.run([py, "scripts/validation/prove_postconditions.py"],
+                           cwd=root, capture_output=True, text=True)
+    if prove.returncode != 0:
+        print(prove.stdout[-1500:], file=sys.stderr)
+        print("pre-commit: a deliberate break went undetected -- the emit-shape "
+              "postconditions are decoration", file=sys.stderr)
+        return 1
+
+    # 2. Regenerate the scorecard and stage it if it moved. Never fail the
+    #    commit on this -- a stale scorecard is a nuisance, not a defect, and
+    #    blocking a commit because `gh` was offline would be worse than useless.
+    gen = subprocess.run([py, "scripts/reports/scorecard.py"], cwd=root,
+                         capture_output=True, text=True)
+    if gen.returncode != 0:
+        print("pre-commit: scorecard generation failed (continuing):",
+              gen.stderr.strip()[:200], file=sys.stderr)
+        return 0
+
+    status = subprocess.run(["git", "status", "--porcelain", "STATUS.md"],
+                            cwd=root, capture_output=True, text=True)
+    if status.stdout.strip():
+        subprocess.run(["git", "add", "STATUS.md"], cwd=root, check=True)
+        print("pre-commit: STATUS.md regenerated and staged")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
