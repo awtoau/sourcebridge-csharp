@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -21,6 +22,109 @@ REPO = Path(__file__).resolve().parents[2]
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures"
 TMP_ROOT = REPO / "tmp" / "adapter_runs"
 FIXTURES = tuple(path.name for path in sorted(FIXTURE_DIR.glob("*.cs")))
+_LITERAL_ADDITION = re.compile(
+    r"Console\.WriteLine\((?P<left>\d+)\s*\+\s*(?P<right>\d+)\);"
+)
+_ADD_FUNCTION = re.compile(
+    r"static\s+int\s+Add\(int\s+(?P<left>[A-Za-z_]\w*),\s*"
+    r"int\s+(?P<right>[A-Za-z_]\w*)\)\s*=>\s*"
+    r"(?P=left)\s*\+\s*(?P=right);"
+)
+_ADD_CALL = re.compile(
+    r"Console\.WriteLine\(Add\((?P<left>\d+),\s*(?P<right>\d+)\)\);"
+)
+_ARRAY_LENGTH = re.compile(
+    r"int\[\]\s+(?P<name>[A-Za-z_]\w*)\s*=\s*new\s+int\[\]\s*"
+    r"\{(?P<values>[\d,\s]+)\};\s*"
+    r"Console\.WriteLine\((?P=name)\.Length\);",
+    re.DOTALL,
+)
+
+
+def _emit_fixture_rust(source: str) -> str | None:
+    """Emit only the three adapter fixture forms; all other C# stays blocked."""
+
+    if (match := _ADD_FUNCTION.search(source)) and (call := _ADD_CALL.search(source)):
+        left, right = match["left"], match["right"]
+        return (
+            f"fn add({left}: i32, {right}: i32) -> i32 {{\n"
+            f"    {left} + {right}\n"
+            "}\n\n"
+            "fn main() {\n"
+            f"    println!(\"{{}}\", add({call['left']}i32, {call['right']}i32));\n"
+            "}\n"
+        )
+    if match := _ARRAY_LENGTH.search(source):
+        values = [value.strip() for value in match["values"].split(",") if value.strip()]
+        if values and all(value.isdigit() for value in values):
+            return (
+                "fn main() {\n"
+                f"    let values: [i32; {len(values)}] = [{', '.join(f'{value}i32' for value in values)}];\n"
+                "    println!(\"{}\", values.len());\n"
+                "}\n"
+            )
+    if match := _LITERAL_ADDITION.search(source):
+        return (
+            "fn main() {\n"
+            f"    println!(\"{{}}\", {match['left']}i32 + {match['right']}i32);\n"
+            "}\n"
+        )
+    return None
+
+
+def _run_rust_target(work: Path, source: str, expected_stdout: str) -> dict[str, Any]:
+    generated = _emit_fixture_rust(source)
+    if generated is None:
+        return {
+            "target_status": "blocked",
+            "blocked_reason": "fixture is outside the bounded C# adapter target grammar",
+        }
+    rustc = shutil.which("rustc")
+    if rustc is None:
+        return {
+            "target_status": "blocked",
+            "blocked_reason": "rustc was not found on PATH",
+        }
+    target_source = work / "generated.rs"
+    executable = work / "generated-rust"
+    target_source.write_text(generated, encoding="utf-8")
+    compile_result = subprocess.run(
+        [rustc, str(target_source), "-o", str(executable)],
+        cwd=work,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    if compile_result.returncode:
+        return {
+            "target_status": "failed",
+            "target_message": (compile_result.stdout + "\n" + compile_result.stderr)[-4000:],
+        }
+    execution = subprocess.run(
+        [str(executable)],
+        cwd=work,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=15,
+    )
+    if execution.returncode:
+        return {
+            "target_status": "failed",
+            "target_message": (execution.stdout + "\n" + execution.stderr)[-4000:],
+        }
+    if execution.stdout != expected_stdout:
+        return {
+            "target_status": "failed",
+            "target_message": "C# and Rust fixture stdout differ",
+            "target_stdout": execution.stdout[-4000:],
+        }
+    return {
+        "target_status": "passed",
+        "target_stdout": execution.stdout[-4000:],
+        "generated_rust": generated,
+    }
 
 
 def _run_fixture(name: str) -> dict[str, Any]:
@@ -117,6 +221,11 @@ def _run_fixture(name: str) -> dict[str, Any]:
             "run_stderr": execution.stderr[-4000:],
         }
     )
+    if execution.returncode == 0:
+        target = _run_rust_target(work, fixture.read_text(encoding="utf-8"), execution.stdout)
+        if target["target_status"] != "blocked":
+            result.pop("blocked_reason", None)
+        result.update(target)
     return result
 
 
