@@ -1,0 +1,43 @@
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+import tempfile
+import unittest
+
+
+ROOT = Path(__file__).resolve().parent
+SPEC = importlib.util.spec_from_file_location("renode_pipeline", ROOT / "renode_pipeline.py")
+assert SPEC is not None and SPEC.loader is not None
+renode_pipeline = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(renode_pipeline)
+
+
+class RenodePipelineTests(unittest.TestCase):
+    def test_gate_statuses_reads_full_gate_summary(self) -> None:
+        statuses = renode_pipeline.gate_statuses(
+            """
+check_ingest                             ok                2.2s
+check_generated                          ok                9.3s
+compile_check --ratchet --jobs 15        FAILED (1)       98.5s
+gap_census --jobs 15                     ok               82.6s
+"""
+        )
+
+        self.assertEqual(
+            statuses,
+            {
+                "check_ingest": "passed",
+                "check_generated": "passed",
+                "compile_check": "failed",
+                "gap_census": "passed",
+            },
+        )
+
+    def test_load_fixture_rejects_unsupported_shape(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = Path(temporary) / "fixture.json"
+            fixture.write_text('{"schema_version": 1}', encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "unsupported pipeline fixture shape"):
+                renode_pipeline.load_fixture(fixture)
