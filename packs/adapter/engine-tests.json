@@ -2,9 +2,9 @@
   "schema_version": 1,
   "pack_id": "sourcebridge-csharp",
   "adapter": {
-    "id": "command",
+    "id": "json-command",
     "config": {
-      "argv": ["python3", "../adapter.py", "--run", "{fixture_path}", "--json"]
+      "argv": ["python3", "../adapter.py", "--run", "{fixture_path}", "--sourcebridge-result"]
     }
   },
   "tests": [
@@ -13,7 +13,10 @@
       "name": "scalar-expression",
       "fixture": "fixtures/case1.cs",
       "expected": {
-        "exit_code": 0
+        "source": {"status": "passed"},
+        "extraction": {"status": "blocked"},
+        "target": {"status": "blocked"},
+        "oracle": {"status": "skipped"}
       }
     },
     {
@@ -21,7 +24,10 @@
       "name": "function-call",
       "fixture": "fixtures/case2.cs",
       "expected": {
-        "exit_code": 0
+        "source": {"status": "passed"},
+        "extraction": {"status": "blocked"},
+        "target": {"status": "blocked"},
+        "oracle": {"status": "skipped"}
       }
     },
     {
@@ -29,7 +35,10 @@
       "name": "array-length",
       "fixture": "fixtures/case3.cs",
       "expected": {
-        "exit_code": 0
+        "source": {"status": "passed"},
+        "extraction": {"status": "blocked"},
+        "target": {"status": "blocked"},
+        "oracle": {"status": "skipped"}
       }
     }
   ]
