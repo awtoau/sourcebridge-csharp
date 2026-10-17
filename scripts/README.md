@@ -36,8 +36,10 @@ by kind).
 - `dev.py ci-fast`: full push-tier (`--full`) run with fail-fast enabled.
 - `dev.py ci-determinism`: explicit issue-36 determinism proof run
   (`check_determinism.py` then `check_emit_determinism.py`).
-- `sync_renode.py` (`dev.py sync-renode --tag vX.Y.Z`): creates or verifies a
-  release-pinned Renode worktree in `tmp/`, then ingests and checks a scratch
+- `sync_renode.py` (`dev.py sync-renode --tag vX.Y.Z` or `--revision <commit>`): creates or verifies a
+  release-pinned Renode worktree in `tmp/` from either a bare or worktree Git
+  store, then restores the Renode and local ingester projects before ingesting
+  and checking a scratch
   corpus. It never overwrites `rulesdb/patterns.db`; review it with
   `dev.py diff-corpus --new tmp/patterns-vX.Y.Z.db`. `--activate` changes the
   local `RENODE_SRC` only after the scratch corpus passes health checks.
