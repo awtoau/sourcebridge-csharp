@@ -170,6 +170,13 @@ def cmd_test(extra: list[str]) -> int:
     return run(["cargo", "test", "--workspace", *extra])
 
 
+@command("run the pack adapter standalone fixtures (minimal C#->Rust test foundation)", kind="action")
+def cmd_adapter_test(extra: list[str]) -> int:
+    # Usage: python3 scripts/dev.py adapter-test --run ALL [--json]
+    argv = [sys.executable, "packs/adapter/adapter.py", *extra]
+    return run(argv)
+
+
 @command("pin a Renode release and ingest a verified scratch corpus (issue #80)",
          kind="action")
 def cmd_sync_renode(extra: list[str]) -> int:
