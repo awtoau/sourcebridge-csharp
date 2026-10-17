@@ -168,6 +168,6 @@ class RenodeExpressions:
                 if not getattr(self, "_stmt_position", False):
                     self.unhandled["expr:BaseClassCall"] = (
                         self.unhandled.get("expr:BaseClassCall", 0) + 1)
-                return "/* GAP: base-class call */"
+                return 'unimplemented!("SOURCEBRIDGE GAP: base-class call")'
 
         return None
