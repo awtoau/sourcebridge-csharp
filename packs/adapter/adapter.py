@@ -53,13 +53,12 @@ def run_fixture(fname: str) -> dict:
     # Create a temporary project under REPO/tmp/adapter_runs/<name>
     work = TMP_ROOT / fname.replace(".cs", "")
     if work.exists():
-        # clean previous run
-        for p2 in work.glob("**/*"):
-            try:
-                if p2.is_file():
-                    p2.unlink()
-            except Exception:
-                pass
+        # clean previous run by removing the per-fixture temporary directory entirely
+        # This is explicit and avoids broad exception suppression during cleanup.
+        try:
+            shutil.rmtree(work)
+        except FileNotFoundError:
+            pass
     work.mkdir(parents=True, exist_ok=True)
 
     # Create minimal csproj
@@ -83,12 +82,32 @@ def run_fixture(fname: str) -> dict:
     if proc.returncode == 0:
         res.update({"compile_supported": True, "compile_ok": True,
                     "message": "build ok"})
+        # Run the built fixture (source-side execution). We do not invoke any
+        # converter or emitter here; record run output and then mark target as
+        # blocked because no generic converter has been invoked yet.
+        try:
+            run_proc = subprocess.run([dotnet, "run", "-c", "Release", "--no-build"],
+                                      cwd=work, capture_output=True, text=True, check=False,
+                                      timeout=10)
+            res.update({
+                "run_exit_code": run_proc.returncode,
+                "run_stdout": run_proc.stdout[:4000],
+                "run_stderr": run_proc.stderr[:4000],
+            })
+        except subprocess.TimeoutExpired:
+            res.update({"run_exit_code": None, "run_stdout": "",
+                        "run_stderr": "run timed out"})
+        # Explicitly mark the target status as blocked: no converter invoked
+        res.update({"target_status": "blocked",
+                    "blocked_reason": "converter not invoked; adapter only performs source-side validation"})
     else:
         # capture stderr/stdout messages for evidence
         msg = proc.stdout + "\n" + proc.stderr
         # Truncate for safety
         res.update({"compile_supported": True, "compile_ok": False,
-                    "message": msg[:4000]})
+                    "message": msg[:4000],
+                    "target_status": "blocked",
+                    "blocked_reason": "build failed; no target produced"})
     return res
 
 
@@ -107,11 +126,30 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--run", nargs="*", default=[],
                     help="Run named fixture(s) or ALL")
     ap.add_argument("--json", action="store_true", help="emit JSON result")
+    ap.add_argument("--selftest", action="store_true", help="Run internal self-test: validates result shape and fixture selection")
     args = ap.parse_args(argv[1:])
 
     if args.list:
         list_fixtures()
         return 0
+
+    if args.selftest:
+        # Deterministic validation: run ALL fixtures and assert result shape
+        results = run_all()
+        ok = True
+        if len(results) != len(FIXTURES):
+            print("selftest failed: result count mismatch", file=sys.stderr)
+            ok = False
+        for r in results:
+            for key in ("name", "compile_supported", "compile_ok", "target_status"):
+                if key not in r:
+                    print(f"selftest failed: missing key {key} in result for {r.get('name')}", file=sys.stderr)
+                    ok = False
+        if ok:
+            print("selftest: ok")
+            return 0
+        else:
+            return 1
 
     to_run = args.run
     if not to_run:
@@ -132,10 +170,10 @@ def main(argv: list[str]) -> int:
         print(json.dumps(results, indent=2))
     else:
         for r in results:
-            print(f"{r['name']}: compile_supported={r['compile_supported']}, compile_ok={r['compile_ok']}")
+            print(f"{r['name']}: compile_supported={r['compile_supported']}, compile_ok={r['compile_ok']}, target_status={r.get('target_status')}")
             if not r['compile_ok']:
                 print("  message:")
-                for line in str(r['message']).splitlines():
+                for line in str(r.get('message','')).splitlines():
                     print("   ", line)
     return 0
 
