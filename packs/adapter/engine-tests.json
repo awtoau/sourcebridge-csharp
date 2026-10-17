@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "pack_id": "sourcebridge-csharp",
+  "adapter": {
+    "id": "command",
+    "config": {
+      "argv": ["python3", "../adapter.py", "--run", "{fixture_path}", "--json"]
+    }
+  },
+  "tests": [
+    {
+      "id": 434,
+      "name": "scalar-expression",
+      "fixture": "fixtures/case1.cs",
+      "expected": {
+        "exit_code": 0
+      }
+    },
+    {
+      "id": 435,
+      "name": "function-call",
+      "fixture": "fixtures/case2.cs",
+      "expected": {
+        "exit_code": 0
+      }
+    },
+    {
+      "id": 436,
+      "name": "array-length",
+      "fixture": "fixtures/case3.cs",
+      "expected": {
+        "exit_code": 0
+      }
+    }
+  ]
+}
