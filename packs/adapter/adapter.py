@@ -37,7 +37,13 @@ def run_fixture(fname: str) -> dict:
       name, path, source_ok, compile_supported, compile_ok, message
     """
     p = FIXTURE_DIR / fname
-    res = {"name": fname, "path": str(p), "source_ok": p.exists()}
+    res = {
+        "name": fname,
+        "path": str(p),
+        "source_ok": p.exists(),
+        "target_status": "blocked",
+        "blocked_reason": "converter not invoked; adapter only performs source-side validation",
+    }
     if not p.exists():
         res.update({"compile_supported": False, "compile_ok": False,
                     "message": "fixture missing"})
@@ -76,7 +82,8 @@ def run_fixture(fname: str) -> dict:
                               timeout=60)
     except subprocess.TimeoutExpired:
         res.update({"compile_supported": True, "compile_ok": False,
-                    "message": "dotnet build timed out"})
+                    "message": "dotnet build timed out",
+                    "blocked_reason": "source build timed out; no target produced"})
         return res
 
     if proc.returncode == 0:
@@ -97,16 +104,12 @@ def run_fixture(fname: str) -> dict:
         except subprocess.TimeoutExpired:
             res.update({"run_exit_code": None, "run_stdout": "",
                         "run_stderr": "run timed out"})
-        # Explicitly mark the target status as blocked: no converter invoked
-        res.update({"target_status": "blocked",
-                    "blocked_reason": "converter not invoked; adapter only performs source-side validation"})
     else:
         # capture stderr/stdout messages for evidence
         msg = proc.stdout + "\n" + proc.stderr
         # Truncate for safety
         res.update({"compile_supported": True, "compile_ok": False,
                     "message": msg[:4000],
-                    "target_status": "blocked",
                     "blocked_reason": "build failed; no target produced"})
     return res
 
