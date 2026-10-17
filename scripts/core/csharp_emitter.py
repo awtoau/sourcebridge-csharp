@@ -1127,12 +1127,18 @@ class Emitter(OffsetSwitchRegisters, RegisterDsl, RenodeExpressions, Expressions
     def fn_name(self, method_name: str) -> str:
         """Emitted function name. Property accessors lose their get_/set_ prefix
         so they match the PropertyReference call sites."""
+        # An explicit interface implementation is recorded as
+        # `Namespace.IInterface.Method`. Rust free functions have no interface
+        # qualification, so lower the terminal member name only.
+        explicit_interface = "." in method_name
+        method_name = method_name.rsplit(".", 1)[-1]
         for pre in (self.project.get("peripheral_methods", {})
                     .get("accessor_names", {}).get("strip_prefixes", [])):
             if method_name.startswith(pre):
                 method_name = method_name[len(pre):]
                 break
-        return snake(method_name)
+        emitted = snake(method_name)
+        return emitted.replace("__", "_") if explicit_interface else emitted
 
     @_core_must_explain
     def emit_peripheral_method(self, type_name: str, method_name: str,

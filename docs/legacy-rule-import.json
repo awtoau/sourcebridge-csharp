@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "target_base_commit": "6df3437b8a73880c959bf744550a1b6f238432d6",
+  "legacy_repository": "awtoau/csharp2rust",
+  "legacy_tip": "87b56a77a90cf4afdd165031cfc2a5efa96fc8f7",
+  "candidates": [
+    {
+      "id": "explicit-interface-method-name-lowering",
+      "classification": "imported",
+      "source": {
+        "commit": "b22edee9e65f28d3aa0c91603963879b8941fb66",
+        "path": "scripts/core/csharp_emitter.py",
+        "symbol": "Emitter.fn_name",
+        "git_blob": "b0c2d4bb66738a8d79de7a94b619738996fd7926",
+        "sha256": "560e6510d3a1447c176fd56552fb0c0e054d32be97a4f178d95ad5a19a8297d0"
+      },
+      "reason": "Explicit-interface qualification is a C# symbol shape; Rust free-function names use the terminal member and this slice names no project type or API.",
+      "regression": "tests/test_generic_rule_import.py::GenericRuleImportTests.test_explicit_interface_name_uses_terminal_member"
+    },
+    {
+      "id": "composite-format-index-preservation",
+      "classification": "imported",
+      "source": {
+        "commit": "d8548a0df556d18e21d9706073cc890d7859164f",
+        "path": "scripts/emitter/lang/expressions.py",
+        "symbol": "Expressions.csharp_format",
+        "git_blob": "b94fed0e6f0597d2aa6a6775a3f15900f87df794",
+        "sha256": "861f83245de6afc8debc9e2bb14ae9fbc44c16738823afb1de7e76777030ad98"
+      },
+      "reason": "C# composite-format parsing and Rust format-field lowering are language mappings; the imported slice has no Renode symbol or project rule.",
+      "regression": "tests/test_generic_rule_import.py::GenericRuleImportTests.test_composite_format_preserves_argument_indexes"
+    },
+    {
+      "id": "composite-format-unsupported-shapes",
+      "classification": "imported",
+      "source": {
+        "commit": "d8548a0df556d18e21d9706073cc890d7859164f",
+        "path": "scripts/emitter/lang/expressions.py",
+        "symbol": "Expressions.csharp_format",
+        "git_blob": "b94fed0e6f0597d2aa6a6775a3f15900f87df794",
+        "sha256": "861f83245de6afc8debc9e2bb14ae9fbc44c16738823afb1de7e76777030ad98"
+      },
+      "reason": "Unsupported alignment or malformed braces are rejected as counted language gaps instead of emitting invalid Rust.",
+      "regression": "tests/test_generic_rule_import.py::GenericRuleImportTests.test_unsupported_composite_format_is_counted"
+    },
+    {
+      "id": "renode-log-argument-selection",
+      "classification": "deferred-project-plugin",
+      "source": {
+        "commit": "d8548a0df556d18e21d9706073cc890d7859164f",
+        "path": "scripts/emitter/plugins/renode_expressions.py",
+        "symbol": "RenodeExpressions._log_message_args",
+        "git_blob": "3289f2fea52c5e3e68f87830eb6cd53611c5efe6",
+        "sha256": "b8e43144d35b2f796ba1245291d1c737d007bf772018964f25905aa53edac030"
+      },
+      "reason": "Renode logging argument selection is a project plugin and is intentionally not imported."
+    },
+    {
+      "id": "nested-base-call-gap-lowering",
+      "classification": "deferred-project-plugin-coupling",
+      "source": [
+        {
+          "commit": "abfdf711cfe7ad53c61c02cd138be99f9e6f5bd1",
+          "path": "scripts/emitter/lang/stmt_expression.py",
+          "symbol": "expression_stmt",
+          "git_blob": "e3892fc178b93f2d30b7b9303347a567f2d29f9a",
+          "sha256": "5d2220635db6159d36dd22784fb6cb51b6b584878cd2f802eb44710d5e5c5084"
+        },
+        {
+          "commit": "abfdf711cfe7ad53c61c02cd138be99f9e6f5bd1",
+          "path": "scripts/emitter/plugins/renode_expressions.py",
+          "symbol": "RenodeExpressions.plugin_expr",
+          "git_blob": "a9905d71e8f2e81c115632477efb08376b0da7ac",
+          "sha256": "611b29f86cdc131f98f1b1227f79b878df6796b2343f4807f0724e39189420e9"
+        }
+      ],
+      "reason": "The language-layer state change is only meaningful with the Renode Base call plugin change; importing either half would be speculative."
+    },
+    {
+      "id": "generated-corpus-and-ratcheting-updates",
+      "classification": "deferred-generated-or-corpus",
+      "source": {
+        "commits": [
+          "ea6d9b26cc563f65c199bc6be6b909037d2fb6b3",
+          "189dc11016a3327c1d0cd2c8a18020adcb43413b",
+          "419032abe9319f746f26ee7715e5dfd7ba122d07",
+          "2f516f2ba9c1b9de8c6004dfb3090e6d074e939c"
+        ],
+        "paths": [
+          "src/renode-stm32/",
+          "docs/status/",
+          "evidence/",
+          "corpora/"
+        ]
+      },
+      "reason": "Corpus synchronization, generated output, and compiler ratchets are not generic rule implementations."
+    }
+  ]
+}

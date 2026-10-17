@@ -137,25 +137,59 @@ class Expressions:
             receiver=self.emit_expr(rid), name=name)
 
     def csharp_format(self, text: str) -> str:
-        """C# composite format to Rust. `{0:X}` -> `{:X}`, `{1:X8}` -> `{:08X}`.
+        """C# composite format to Rust. `{0:X}` -> `{0:X}`, `{1:X8}` -> `{1:08X}`.
 
         Passing the C# form through is a compile ERROR, not a wrong string:
         rustc reports `invalid format string: expected }, found 8`."""
         spec = self.language.get("format_strings", {})
         table = spec.get("specs", {})
 
-        def one(m):
-            fmt = m.group(2) or ""
-            if not fmt:
-                return "{}"
-            kind, digits = fmt[0], fmt[1:]
-            mapped = table.get(kind, kind)
-            if digits.isdigit() and mapped:
-                return "{:" + spec.get("padded_hex", "0{width}{spec}").format(
-                    width=digits, spec=mapped) + "}"
-            return "{:" + mapped + "}" if mapped else "{}"
+        def unsupported() -> str:
+            self.unhandled["format:unsupported-composite"] = (
+                self.unhandled.get("format:unsupported-composite", 0) + 1)
+            return "{{GAP: unsupported C# composite format}}"
 
-        return re.sub(r"\{(\d+)(?::([^}]*))?\}", one, text)
+        out: list[str] = []
+        pos = 0
+        while pos < len(text):
+            if text[pos] == "{":
+                if pos + 1 < len(text) and text[pos + 1] == "{":
+                    out.append("{{")
+                    pos += 2
+                    continue
+                end = text.find("}", pos + 1)
+                if end == -1:
+                    out.append(unsupported())
+                    break
+                content = text[pos + 1:end]
+                match = re.fullmatch(r"(\d+)(?::([xX])(\d*)?)?", content)
+                if match is None:
+                    out.append(unsupported())
+                else:
+                    index, kind, digits = match.groups()
+                    if kind is None:
+                        out.append("{" + index + "}")
+                    else:
+                        mapped = table.get(kind, kind)
+                        if digits:
+                            out.append("{" + index + ":" + spec.get(
+                                "padded_hex", "0{width}{spec}").format(
+                                    width=digits, spec=mapped) + "}")
+                        else:
+                            out.append("{" + index + ":" + mapped + "}")
+                pos = end + 1
+                continue
+            if text[pos] == "}":
+                if pos + 1 < len(text) and text[pos + 1] == "}":
+                    out.append("}}")
+                    pos += 2
+                    continue
+                out.append(unsupported())
+                pos += 1
+                continue
+            out.append(text[pos])
+            pos += 1
+        return "".join(out)
 
     def literal(self, const: str | None, rtype: str | None = None) -> str:
         """A literal, rendered for Rust.
@@ -213,4 +247,3 @@ class Expressions:
             if inner:
                 return inner
         return None
-
