@@ -84,6 +84,12 @@ def load_language(rules_dir: Path) -> dict:
     return json.loads(f.read_text()) if f.exists() else {}
 
 
+def method_identifier(method_name: str, shape: str) -> str:
+    if shape != "declared-member-segment-snake-case":
+        raise ValueError(f"unsupported method identifier output shape `{shape}`")
+    return snake(method_name.rsplit(".", 1)[-1])
+
+
 def load_expressions(rules_dir: Path) -> list[dict]:
     """Project-specific expression idioms."""
     out: list[dict] = []
@@ -1127,13 +1133,16 @@ class Emitter(OffsetSwitchRegisters, RegisterDsl, RenodeExpressions, Expressions
     def fn_name(self, method_name: str) -> str:
         """Emitted function name. Property accessors lose their get_/set_ prefix
         so they match the PropertyReference call sites."""
+        shape = self.language.get("output_shapes", {}).get("method_identifier", {}).get("shape")
+        if not isinstance(shape, str):
+            raise ValueError("missing method identifier output shape")
         method_name = method_name.rsplit(".", 1)[-1]
         for pre in (self.project.get("peripheral_methods", {})
                     .get("accessor_names", {}).get("strip_prefixes", [])):
             if method_name.startswith(pre):
                 method_name = method_name[len(pre):]
                 break
-        return snake(method_name)
+        return method_identifier(method_name, shape)
 
     @_core_must_explain
     def emit_peripheral_method(self, type_name: str, method_name: str,
