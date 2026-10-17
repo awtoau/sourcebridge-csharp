@@ -542,7 +542,7 @@ def build_report(
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="toolchain-report")
+    parser = argparse.ArgumentParser(prog="toolchain-report", allow_abbrev=False)
     parser.add_argument(
         "--project",
         type=Path,

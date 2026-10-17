@@ -19,7 +19,10 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    return report_main(["--focus", "roslyn", *arguments])
+    try:
+        return report_main(["--focus", "roslyn", *arguments])
+    except SystemExit as error:
+        return int(error.code)
 
 
 if __name__ == "__main__":

@@ -134,6 +134,8 @@ class ToolchainReportTests(unittest.TestCase):
     def test_roslyn_report_rejects_user_focus_override(self) -> None:
         self.assertEqual(roslyn_report_main(["--focus", "all"]), 2)
         self.assertEqual(roslyn_report_main(["--focus=all"]), 2)
+        self.assertEqual(roslyn_report_main(["--foc", "all"]), 2)
+        self.assertEqual(roslyn_report_main(["--foc=all"]), 2)
 
     def test_upgrade_proposal_requires_an_explicit_decision(self) -> None:
         proposal = {
