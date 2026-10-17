@@ -170,6 +170,11 @@ def cmd_test(extra: list[str]) -> int:
     return run(["cargo", "test", "--workspace", *extra])
 
 
+@command("run standalone C# source-side adapter fixtures", kind="action")
+def cmd_adapter_test(extra: list[str]) -> int:
+    return run([sys.executable, "packs/adapter/adapter.py", *extra])
+
+
 @command("run the fail-fast everyday validation tier", kind="aggregate")
 def cmd_gate(extra: list[str]) -> int:
     return run([sys.executable, "scripts/gates.py", *extra])

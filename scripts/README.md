@@ -74,6 +74,14 @@ and decision documents. They are analysis commands, not everyday gates.
 - `dispatch_spike.py`: despite its historical name, this is maintained; it
   regenerates `docs/status/dispatch.json` cited by current decision documents.
 
+Toolchain currency:
+
+- `toolchain_report.py`: records installed .NET, declared/resolved NuGet, and
+  latest NuGet observations for the Roslyn frontend.
+- `roslyn_report.py`: the same contract limited to Roslyn packages.
+- `packs/adapter/adapter.py`: source-side C# fixture adapter; it explicitly
+  blocks the target side because no converter is invoked.
+
 ## Inspection tools
 
 - `dump_emitted.py`: write emitted modules under `tmp/out/` for human review.
