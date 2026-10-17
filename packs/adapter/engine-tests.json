@@ -4,7 +4,8 @@
   "adapter": {
     "id": "json-command",
     "config": {
-      "argv": ["python3", "../adapter.py", "--run", "{fixture_path}", "--sourcebridge-result"]
+      "argv": ["python3", "../sourcebridge_adapter.py", "{fixture_path}"],
+      "timeout_seconds": 600
     }
   },
   "tests": [
@@ -38,6 +39,17 @@
         "source": {"status": "passed"},
         "extraction": {"status": "blocked"},
         "target": {"status": "blocked"},
+        "oracle": {"status": "skipped"}
+      }
+    },
+    {
+      "id": 437,
+      "name": "renode-corpus-pipeline",
+      "fixture": "fixtures/renode-pipeline.json",
+      "expected": {
+        "source": {"status": "passed"},
+        "extraction": {"status": "passed"},
+        "target": {"status": "failed"},
         "oracle": {"status": "skipped"}
       }
     }
