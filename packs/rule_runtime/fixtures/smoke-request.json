@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "action": "execute",
+  "rule_id": "composite-format-index-preservation",
+  "input": {
+    "text": "value {0:X8} then {1} and {0:x}"
+  },
+  "resolved_profile": {
+    "id": "csharp-to-rust-base",
+    "resolved_digest": "fixture-only",
+    "base_profile": {
+      "source_frontend_pack_id": "sourcebridge-csharp",
+      "target_backend_pack_id": "sourcebridge-rust",
+      "corpus_pack_id": null
+    },
+    "rule_overrides": [],
+    "setting_overrides": []
+  }
+}

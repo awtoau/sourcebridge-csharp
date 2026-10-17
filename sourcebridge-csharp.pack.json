@@ -10,6 +10,8 @@
   "entrypoints": {
     "toolchain_report": "scripts/toolchain_report.py",
     "roslyn_report": "scripts/roslyn_report.py",
-    "adapter_test": "packs/adapter/adapter.py"
+    "adapter_test": "packs/adapter/adapter.py",
+    "rule_runtime": "packs/rule_runtime/runtime.py",
+    "rule_runtime_contract": "docs/rule-runtime-boundary.json"
   }
 }

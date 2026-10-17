@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "contract_id": "sourcebridge.rule-runtime",
+  "contract_version": 1,
+  "pack_id": "sourcebridge-csharp",
+  "capability": "generic-csharp-rule-runtime",
+  "entrypoint": "packs/rule_runtime/runtime.py",
+  "provenance_record": "docs/legacy-rule-import.json",
+  "scope": {
+    "source_frontend_pack_id": "sourcebridge-csharp",
+    "target_backend_pack_id": "sourcebridge-rust",
+    "corpus_pack": null,
+    "generic_only": true
+  },
+  "rules": [
+    {
+      "id": "explicit-interface-method-name-lowering",
+      "operation": "lower_explicit_interface_name",
+      "provenance_candidate": "explicit-interface-method-name-lowering",
+      "provenance": {
+        "commit": "b22edee9e65f28d3aa0c91603963879b8941fb66",
+        "path": "scripts/core/csharp_emitter.py",
+        "symbol": "Emitter.fn_name",
+        "git_blob": "b0c2d4bb66738a8d79de7a94b619738996fd7926",
+        "sha256": "560e6510d3a1447c176fd56552fb0c0e054d32be97a4f178d95ad5a19a8297d0"
+      }
+    },
+    {
+      "id": "composite-format-index-preservation",
+      "operation": "lower_composite_format",
+      "provenance_candidate": "composite-format-index-preservation",
+      "provenance": {
+        "commit": "d8548a0df556d18e21d9706073cc890d7859164f",
+        "path": "scripts/emitter/lang/expressions.py",
+        "symbol": "Expressions.csharp_format",
+        "git_blob": "b94fed0e6f0597d2aa6a6775a3f15900f87df794",
+        "sha256": "861f83245de6afc8debc9e2bb14ae9fbc44c16738823afb1de7e76777030ad98"
+      }
+    },
+    {
+      "id": "composite-format-unsupported-shapes",
+      "operation": "lower_composite_format",
+      "provenance_candidate": "composite-format-unsupported-shapes",
+      "provenance": {
+        "commit": "d8548a0df556d18e21d9706073cc890d7859164f",
+        "path": "scripts/emitter/lang/expressions.py",
+        "symbol": "Expressions.csharp_format",
+        "git_blob": "b94fed0e6f0597d2aa6a6775a3f15900f87df794",
+        "sha256": "861f83245de6afc8debc9e2bb14ae9fbc44c16738823afb1de7e76777030ad98"
+      }
+    }
+  ],
+  "directives": {
+    "accepted": [
+      "enable",
+      "configure"
+    ],
+    "blocked": [
+      "disable",
+      "replace",
+      "unknown"
+    ]
+  },
+  "blocked_classifications": [
+    "deferred-project-plugin",
+    "deferred-project-plugin-coupling",
+    "deferred-generated-or-corpus"
+  ]
+}
