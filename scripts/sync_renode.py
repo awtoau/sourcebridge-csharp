@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Pin a Renode release worktree and ingest a verified scratch corpus.
 
-Run through ``python3.15t scripts/dev.py sync-renode --tag vX.Y.Z``. The
-canonical corpus is never an output path; review the scratch corpus first and
-pass ``--activate`` only when it is ready to become the local source checkout.
+Run through ``python3.15t scripts/dev.py sync-renode --tag vX.Y.Z`` or
+``--revision <commit>``. The canonical corpus is never an output path; review
+the scratch corpus first and pass ``--activate`` only when it is ready to
+become the local source checkout.
 """
 
 from __future__ import annotations
@@ -49,6 +50,26 @@ def run(log: logging.Logger, args: list[str], **kwargs: object) -> None:
     subprocess.run(args, check=True, **kwargs)
 
 
+def git_store_arguments(store: Path) -> list[str] | None:
+    worktree = subprocess.run(
+        ["git", "-C", str(store), "rev-parse", "--git-dir"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if worktree.returncode == 0:
+        return ["git", "-C", str(store)]
+    bare = subprocess.run(
+        ["git", f"--git-dir={store}", "rev-parse", "--is-bare-repository"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if bare.returncode == 0 and bare.stdout.strip() == "true":
+        return ["git", f"--git-dir={store}"]
+    return None
+
+
 def tfm_from_build_script(worktree: Path) -> str:
     match = re.search(
         r'^TFM="([^"]+)"', (worktree / "build.sh").read_text(encoding="utf-8"), re.M
@@ -78,7 +99,9 @@ def verify_corpus(db: Path, log_file: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tag", required=True, help="upstream tag, e.g. v1.17.0")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--tag", help="upstream tag, e.g. v1.17.0")
+    source.add_argument("--revision", help="immutable upstream commit SHA")
     parser.add_argument(
         "--store", help="shared Renode Git store (defaults to RENODE_STORE in environment or .env)"
     )
@@ -108,12 +131,16 @@ def main() -> int:
         logger.error("RENODE_STORE is required (--store, environment, or .env)")
         return 1
     store = Path(store_value).resolve()
-    if not (store / ".git").exists():
+    store_git = git_store_arguments(store)
+    if store_git is None:
         logger.error("not a Git store: %s", store)
         return 1
 
-    worktree = root / "tmp" / f"renode-{args.tag}"
-    db = (root / (args.db or f"tmp/patterns-{args.tag}.db")).resolve()
+    selector = args.tag or args.revision
+    assert selector is not None
+    label = args.tag or f"commit-{selector[:12]}"
+    worktree = root / "tmp" / f"renode-{label}"
+    db = (root / (args.db or f"tmp/patterns-{label}.db")).resolve()
     canonical = (root / "rulesdb" / "patterns.db").resolve()
     if db == canonical:
         logger.error("refusing to overwrite canonical rulesdb/patterns.db")
@@ -122,10 +149,11 @@ def main() -> int:
 
     try:
         with (logs / "sync_renode.log").open("a", encoding="utf-8") as output:
-            run(logger, ["git", "-C", str(store), "fetch", "--no-tags", "origin", "tag", args.tag],
-                stdout=output, stderr=subprocess.STDOUT)
+            if args.tag:
+                run(logger, [*store_git, "fetch", "--no-tags", "origin", "tag", args.tag],
+                    stdout=output, stderr=subprocess.STDOUT)
             target = subprocess.run(
-                ["git", "-C", str(store), "rev-parse", f"{args.tag}^{{commit}}"],
+                [*store_git, "rev-parse", f"{selector}^{{commit}}"],
                 check=True, capture_output=True, text=True,
             ).stdout.strip()
             if worktree.exists():
@@ -135,10 +163,10 @@ def main() -> int:
                 ).stdout.strip()
                 if actual != target:
                     raise RuntimeError(
-                        f"existing worktree {worktree} is {actual[:12]}, not {args.tag} ({target[:12]})"
+                        f"existing worktree {worktree} is {actual[:12]}, not {selector} ({target[:12]})"
                     )
             else:
-                run(logger, ["git", "-C", str(store), "worktree", "add", "--detach",
+                run(logger, [*store_git, "worktree", "add", "--detach",
                              str(worktree), target], stdout=output, stderr=subprocess.STDOUT)
             run(logger, ["git", "-C", str(worktree), "submodule", "update", "--init",
                          "--recursive", "--", "src/Infrastructure"],
@@ -154,6 +182,8 @@ def main() -> int:
             )
             project = worktree / "src" / "Infrastructure" / "src" / "Infrastructure.csproj"
             run(logger, ["dotnet", "restore", str(project)], stdout=output, stderr=subprocess.STDOUT)
+            run(logger, ["dotnet", "restore", "frontend/RenodeIngest"],
+                cwd=root, stdout=output, stderr=subprocess.STDOUT)
             run(logger, ["dotnet", "build", "frontend/RenodeIngest", "--no-restore"],
                 cwd=root, stdout=output, stderr=subprocess.STDOUT)
             temporary_db = db.with_suffix(f"{db.suffix}.new")
