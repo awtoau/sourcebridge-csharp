@@ -10,11 +10,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from toolchain_report import (  # noqa: E402
+    DEFAULT_PROJECT,
+    build_report,
     discover_declared,
     discover_latest,
     discover_resolved,
     _validate_proposal,
 )
+from roslyn_report import main as roslyn_report_main  # noqa: E402
 
 
 class ToolchainReportTests(unittest.TestCase):
@@ -106,6 +109,32 @@ class ToolchainReportTests(unittest.TestCase):
         self.assertEqual(first, second)
         self.assertEqual(first["packages"][0]["status"], "not_queried")
 
+    def test_roslyn_report_queries_only_roslyn_latest_packages(self) -> None:
+        queried: list[str] = []
+
+        def fake_latest(package_id: str) -> str:
+            queried.append(package_id)
+            return "9.9.9"
+
+        report = build_report(
+            DEFAULT_PROJECT,
+            focus="roslyn",
+            latest_fetcher=fake_latest,
+        )
+
+        self.assertTrue(queried)
+        self.assertTrue(all(package_id.startswith("Microsoft.CodeAnalysis")
+                            or package_id.startswith("Microsoft.Net.Compilers")
+                            for package_id in queried))
+        self.assertEqual(
+            queried,
+            [package["id"] for package in report["observations"]["latest"]["packages"]],
+        )
+
+    def test_roslyn_report_rejects_user_focus_override(self) -> None:
+        self.assertEqual(roslyn_report_main(["--focus", "all"]), 2)
+        self.assertEqual(roslyn_report_main(["--focus=all"]), 2)
+
     def test_upgrade_proposal_requires_an_explicit_decision(self) -> None:
         proposal = {
             "id": "roslyn-upgrade",
@@ -120,3 +149,19 @@ class ToolchainReportTests(unittest.TestCase):
         proposal.pop("decision")
         with self.assertRaisesRegex(ValueError, "adopt/defer"):
             _validate_proposal(proposal, "proposal")
+
+    def test_compatibility_evidence_entries_must_be_non_empty_mappings(self) -> None:
+        proposal = {
+            "id": "roslyn-upgrade",
+            "component": "Microsoft.CodeAnalysis",
+            "from": "4.11.0",
+            "to": "4.14.0",
+            "compatibility_evidence": [{"reference": "api-review-1"}],
+            "validation": {"command": "dotnet test", "result": "not run"},
+            "decision": {"status": "defer", "evidence": "review-1"},
+        }
+        for invalid in ([{}], ["api-review-1"], [None]):
+            with self.subTest(invalid=invalid):
+                proposal["compatibility_evidence"] = invalid
+                with self.assertRaisesRegex(ValueError, "non-empty objects"):
+                    _validate_proposal(proposal, "proposal")

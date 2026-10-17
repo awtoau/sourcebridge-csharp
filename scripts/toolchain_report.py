@@ -462,10 +462,13 @@ def _validate_proposal(proposal: Any, label: str) -> None:
     if not all(isinstance(proposal[field], str) and proposal[field] for field in
                ("id", "component", "from", "to")):
         raise ToolchainReportError(f"{label}: proposal identity fields are required")
-    if not isinstance(proposal["compatibility_evidence"], list) or not proposal[
-        "compatibility_evidence"
-    ]:
+    compatibility = proposal["compatibility_evidence"]
+    if not isinstance(compatibility, list) or not compatibility:
         raise ToolchainReportError(f"{label}: compatibility_evidence is required")
+    if any(not isinstance(item, dict) or not item for item in compatibility):
+        raise ToolchainReportError(
+            f"{label}: compatibility_evidence entries must be non-empty objects"
+        )
     validation = proposal["validation"]
     decision = proposal["decision"]
     if (
@@ -488,17 +491,19 @@ def build_report(
     network: bool = True,
     proposals_path: Path | None = None,
     runner: CommandRunner | None = None,
+    latest_fetcher: Callable[[str], str] = fetch_latest_version,
 ) -> dict[str, Any]:
     project = project.resolve()
     declared = discover_declared(project)
     installed = discover_installed_dotnet(runner=runner)
     resolved = discover_resolved(project, declared)
-    latest = discover_latest(declared, network=network)
     if focus == "roslyn":
         declared = {
             **declared,
             "packages": _filter_roslyn(declared["packages"]),
         }
+    latest = discover_latest(declared, network=network, fetcher=latest_fetcher)
+    if focus == "roslyn":
         resolved = {
             **resolved,
             "packages": _filter_roslyn(resolved.get("packages", [])),
