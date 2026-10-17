@@ -1127,6 +1127,7 @@ class Emitter(OffsetSwitchRegisters, RegisterDsl, RenodeExpressions, Expressions
     def fn_name(self, method_name: str) -> str:
         """Emitted function name. Property accessors lose their get_/set_ prefix
         so they match the PropertyReference call sites."""
+        method_name = method_name.rsplit(".", 1)[-1]
         for pre in (self.project.get("peripheral_methods", {})
                     .get("accessor_names", {}).get("strip_prefixes", [])):
             if method_name.startswith(pre):
