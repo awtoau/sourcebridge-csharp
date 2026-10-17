@@ -11,7 +11,10 @@ Usage:
 Sourcebridge imports [`engine-tests.json`](./engine-tests.json)
 through [`sourcebridge-csharp.pack.json`](../../sourcebridge-csharp.pack.json).
 The catalogue assigns stable IDs 434-436 while this adapter remains responsible
-for source-side execution and explicit target-blocked evidence.
+for source-side execution and explicit target-blocked evidence. With
+`--sourcebridge-result`, it emits the Sourcebridge structured result envelope:
+source is passed or failed, extraction and target remain blocked until a
+generic converter is connected, and oracle is skipped.
 
 Behavior:
 - If the host has the `dotnet` SDK available, adapter will attempt to `dotnet build`

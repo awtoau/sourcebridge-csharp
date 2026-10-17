@@ -123,12 +123,51 @@ def run_all() -> list:
     return results
 
 
+def sourcebridge_result(result: dict) -> dict:
+    """Normalize one source fixture run for Sourcebridge's JSON adapter."""
+    if not result["compile_supported"]:
+        source = {"status": "blocked", "details": {"message": result["message"]}}
+    elif not result["compile_ok"]:
+        source = {"status": "failed", "details": {"message": result["message"]}}
+    elif result.get("run_exit_code") == 0:
+        source = {
+            "status": "passed",
+            "details": {
+                "exit_code": result["run_exit_code"],
+                "stdout": result["run_stdout"],
+                "stderr": result["run_stderr"],
+            },
+        }
+    else:
+        source = {
+            "status": "failed",
+            "details": {
+                "exit_code": result.get("run_exit_code"),
+                "stdout": result.get("run_stdout", ""),
+                "stderr": result.get("run_stderr", ""),
+            },
+        }
+    blocked = {"status": "blocked", "details": {"reason": result["blocked_reason"]}}
+    return {
+        "schema_version": 1,
+        "source": source,
+        "extraction": blocked,
+        "target": blocked,
+        "oracle": {"status": "skipped", "details": {"reason": "target unavailable"}},
+    }
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--run", nargs="*", default=[],
                     help="Run named fixture(s) or ALL")
     ap.add_argument("--json", action="store_true", help="emit JSON result")
+    ap.add_argument(
+        "--sourcebridge-result",
+        action="store_true",
+        help="emit one Sourcebridge structured adapter result",
+    )
     ap.add_argument("--selftest", action="store_true", help="Run internal self-test: validates result shape and fixture selection")
     args = ap.parse_args(argv[1:])
 
@@ -169,6 +208,13 @@ def main(argv: list[str]) -> int:
                 print(f"unknown fixture: {name}", file=sys.stderr)
                 return 2
             results.append(run_fixture(fixture_name))
+
+    if args.sourcebridge_result:
+        if len(results) != 1:
+            print("--sourcebridge-result requires exactly one fixture", file=sys.stderr)
+            return 2
+        print(json.dumps(sourcebridge_result(results[0]), indent=2))
+        return 0
 
     if args.json:
         print(json.dumps(results, indent=2))
