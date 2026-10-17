@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "sourcebridge-csharp",
+  "kind": "frontend",
+  "version": "0.1.0",
+  "provides": {
+    "source_languages": ["csharp"],
+    "target_environments": []
+  },
+  "entrypoints": {
+    "engine_tests": "packs/adapter/engine-tests.json"
+  }
+}

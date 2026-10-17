@@ -8,6 +8,11 @@ Usage:
   python3 packs/adapter/adapter.py --list        # list known fixtures
   python3 packs/adapter/adapter.py --run ALL     # run all fixtures
 
+Sourcebridge imports [`engine-tests.json`](./engine-tests.json)
+through [`sourcebridge-csharp.pack.json`](../../sourcebridge-csharp.pack.json).
+The catalogue assigns stable IDs 434-436 while this adapter remains responsible
+for source-side execution and explicit target-blocked evidence.
+
 Behavior:
 - If the host has the `dotnet` SDK available, adapter will attempt to `dotnet build`
   each fixture in a temporary workspace under tmp/adapter_runs.

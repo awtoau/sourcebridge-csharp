@@ -36,7 +36,7 @@ def run_fixture(fname: str) -> dict:
     Returns a result dict with fields:
       name, path, source_ok, compile_supported, compile_ok, message
     """
-    p = FIXTURE_DIR / fname
+    p = FIXTURE_DIR / Path(fname).name
     res = {
         "name": fname,
         "path": str(p),
@@ -164,10 +164,11 @@ def main(argv: list[str]) -> int:
     else:
         results = []
         for name in to_run:
-            if name not in FIXTURES:
+            fixture_name = Path(name).name
+            if fixture_name not in FIXTURES:
                 print(f"unknown fixture: {name}", file=sys.stderr)
                 return 2
-            results.append(run_fixture(name))
+            results.append(run_fixture(fixture_name))
 
     if args.json:
         print(json.dumps(results, indent=2))
